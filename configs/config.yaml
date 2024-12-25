@@ -1,0 +1,55 @@
+gcp:
+  project_id: "oranrag"
+  location: "us-central1"
+  bucket_name: "oran-rag-bucket-us-central"
+  embeddings_path: "embeddings/"
+  bucket_uri: "gs://oran-rag-bucket-us-central/embeddings/"
+  qna_dataset_path: "dataset/Q&A_ds_H.json"
+  credentials_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/oranrag-893f56785868.json"
+
+paths:
+  documents: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Documents/"
+  embeddings_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Embeddings/"
+
+vector_search:
+  index_display_name: "oran_rag_index"  # Name for the index creation
+  endpoint_display_name: "oran_rag_index_endpoint"  # Name for the index deployment
+  deployed_index_id: "oran_rag_index_deployed" # Name for the deployed index
+
+  # Parameters for index creation
+  index_description: "Index for O-RAN document embeddings"
+  dimensions: 768
+  approximate_neighbors_count: 5
+  leaf_node_embedding_count: 500
+  leaf_nodes_to_search_percent: 7
+  distance_measure_type: "COSINE_DISTANCE"
+  feature_norm_type: "UNIT_L2_NORM"
+  shard_size: "SHARD_SIZE_SMALL"
+
+  #Parameters for index deployment
+  machine_type: "e2-standard-2"
+  min_replica_count: 2
+  max_replica_count: 2
+
+  # Parameters for search
+  num_neighbors: 10
+
+chunking:
+  chunk_size: 1536  # Maximum number of characters per chunk
+  chunk_overlap: 256  # Number of overlapping characters between chunks
+  separators: [". ", "? ", "! ", "\n\n"]
+  min_char_count: 100
+
+generation:
+  temperature: 0.7
+  top_p: 0.9
+  max_output_tokens: 2000
+
+logging:
+  log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/log/oran_rag.log"  # User-defined path for log files
+
+evaluation:
+  num_questions: 10
+  excel_file_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Evaluation/evaluation_results.xlsx"
+  max_workers: 1
+  plot_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Evaluation/accuracy_plots.png"
