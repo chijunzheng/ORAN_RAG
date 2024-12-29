@@ -81,12 +81,6 @@ def parse_arguments():
     )
     
     pipeline_group.add_argument(
-        '--skip-create-endpoint',
-        action='store_true',
-        help='Skip the creation of a new index endpoint.'
-    )
-    
-    pipeline_group.add_argument(
         '--skip-deploy-index',
         action='store_true',
         help='Skip the index deployment stage.'
@@ -157,7 +151,6 @@ def main():
     # Assign flags to variables for clarity
     skip_preprocessing = args.skip_preprocessing
     skip_create_index = args.skip_create_index
-    skip_create_endpoint = args.skip_create_endpoint
     skip_deploy_index = args.skip_deploy_index
 
     # Initialize VectorIndexer regardless of flags (required for indexing operations)
@@ -265,42 +258,22 @@ def main():
     else:
         logging.info("Skipping index creation stage.")
 
-    # 3. Index Endpoint Creation Stage
-    index_endpoint = None
-    if not skip_create_endpoint:
-        logging.info("Starting index endpoint creation stage.")
-        try:
-            index_endpoint = indexer.create_index_endpoint()
-            logging.info(f"Index endpoint created: {index_endpoint.resource_name}")
-        except Exception as e:
-            logging.error(f"Failed to create index endpoint: {e}")
-            sys.exit(1)
-    else:
-        logging.info("Skipping creation of a new index endpoint as per user request.")
-
-    # 4. Index Deployment Stage
+    # 3. Index Deployment Stage
     if not skip_deploy_index:
         logging.info("Starting index deployment stage.")
         try:
-            if index:
-                # Deploy the newly created index
-                endpoint, deployed_index_id = indexer.deploy_index(index=index)
-                logging.info(f"Index deployed with ID: {deployed_index_id}")
-                # Update config with deployed_index_id for downstream components
-                config['vector_search']['deployed_index_id'] = deployed_index_id
-            else:
-                # Deploy an existing index
-                endpoint, deployed_index_id = indexer.deploy_index_existing()
-                logging.info(f"Existing index deployed with ID: {deployed_index_id}")
-                # Update config with deployed_index_id for downstream components
-                config['vector_search']['deployed_index_id'] = deployed_index_id
+            # Deploy the newly created index or an existing one
+            endpoint, deployed_index_id = indexer.deploy_index(index=index)
+            logging.info(f"Index deployed with ID: {deployed_index_id}")
+            # Update config with deployed_index_id for downstream components
+            config['vector_search']['deployed_index_id'] = deployed_index_id
         except Exception as e:
             logging.error(f"Index deployment failed: {e}")
             sys.exit(1)
     else:
         logging.info("Skipping index deployment stage.")
 
-    # 5. Initialize VectorSearcher (needed for both Chatbot and Evaluator)
+    # 4. Initialize VectorSearcher (needed for both Chatbot and Evaluator)
     try:
         vector_searcher = VectorSearcher(
             project_id=gcp_config['project_id'],
@@ -314,7 +287,7 @@ def main():
         logging.error(f"Failed to initialize VectorSearcher: {e}")
         sys.exit(1)
 
-    # 6. Chatbot or Evaluation
+    # 5. Chatbot or Evaluation
     if args.evaluation == 'on':
         logging.info("Evaluation mode is ON. Skipping chatbot interaction.")
     else:
@@ -341,7 +314,7 @@ def main():
             logging.error(f"Chatbot encountered an error: {e}")
             sys.exit(1)
 
-    # 7. Conditional Evaluation
+    # 6. Conditional Evaluation
     if args.evaluation == 'on':
         logging.info("Starting evaluation stage.")
         try:
