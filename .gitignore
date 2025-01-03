@@ -1,0 +1,17 @@
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore CSV and JSON files (optional if not needed in repo)
+*.csv
+*.json
+
+# Ignore environment folders
+.venv/
+log/
+
+# Ignore specific data files
+part_*.jsonl
+chunks*.json
+delete_rag_files.sh
+request.json
