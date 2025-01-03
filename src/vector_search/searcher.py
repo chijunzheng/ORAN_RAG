@@ -3,7 +3,7 @@
 import json
 import logging
 from google.cloud import storage
-from typing import List, Dict, Tuple
+from typing import List, Dict
 from google.cloud import aiplatform
 from vertexai.preview.language_models import TextEmbeddingModel, TextEmbeddingInput
 from google.api_core.exceptions import NotFound, FailedPrecondition, GoogleAPICallError
@@ -12,31 +12,30 @@ from google.api_core.exceptions import NotFound, FailedPrecondition, GoogleAPICa
 class VectorSearcher:
     def __init__(
         self,
-        project_id: str,
-        location: str,
-        bucket_name: str,
-        embeddings_path: str,
-        bucket_uri: str,
+        config: dict,
         credentials
     ):
         """
         Initializes the VectorSearcher with specific configuration parameters.
         
         Args:
-            project_id (str): Google Cloud project ID.
-            location (str): Google Cloud location (e.g., 'us-central1').
-            bucket_name (str): Name of the GCS bucket.
-            embeddings_path (str): Path within the GCS bucket for embeddings.
-            bucket_uri (str): URI of the GCS bucket.
+            config (dict): Configuration dictionary containing all necessary parameters.
+            credentials: Google Cloud credentials.
         """
         try:
-            self.project_id = project_id
-            self.location = location
-            self.bucket_name = bucket_name
-            self.embeddings_path = embeddings_path
-            self.bucket_uri = bucket_uri
+            # Extract necessary configurations
+            self.project_id = config.get('gcp', {}).get('project_id')
+            self.location = config.get('gcp', {}).get('location')
+            self.bucket_name = config.get('gcp', {}).get('bucket_name')
+            self.embeddings_path = config.get('gcp', {}).get('embeddings_path')
+            self.bucket_uri = config.get('gcp', {}).get('bucket_uri')
+            self.embedding_model_name = config.get('embedding', {}).get('embedding_model_name', 'text-embedding-004')  # Default to 'text-embedding-004' if not specified
+            self.index_endpoint_display_name = config.get('vector_search', {}).get('endpoint_display_name')
+            self.deployed_index_id = config.get('vector_search', {}).get('deployed_index_id')
             
-
+            if not all([self.project_id, self.location, self.bucket_name, self.embeddings_path, self.bucket_uri]):
+                raise ValueError("Missing required GCP configuration parameters.")
+            
             # Initialize AI Platform
             aiplatform.init(project=self.project_id, location=self.location, credentials=credentials)
             logging.info(f"Initialized VectorSearcher with project_id='{self.project_id}', location='{self.location}', bucket_uri='{self.bucket_uri}'")
@@ -46,8 +45,8 @@ class VectorSearcher:
             self.bucket = self.storage_client.bucket(self.bucket_name)
             
             # Initialize Embedding Model
-            self.embedding_model = TextEmbeddingModel.from_pretrained("text-embedding-005")
-            logging.info("Initialized TextEmbeddingModel from 'text-embedding-005'")
+            self.embedding_model = TextEmbeddingModel.from_pretrained(self.embedding_model_name)
+            logging.info(f"Initialized TextEmbeddingModel from '{self.embedding_model_name}'")
         
         except KeyError as ke:
             logging.error(f"Missing configuration key: {ke}", exc_info=True)
@@ -96,8 +95,6 @@ class VectorSearcher:
 
     def validate_search_params(
             self,
-            index_endpoint_display_name: str,
-            deployed_index_id: str,
             query_text: str,
             num_neighbors: int
         ):
@@ -105,18 +102,16 @@ class VectorSearcher:
         Validates parameters for performing a vector search.
         
         Args:
-            index_endpoint_name (str): Full resource name of the index endpoint.
-            deployed_index_id (str): ID of the deployed index.
             query_text (str): User query text.
             num_neighbors (int): Number of nearest neighbors to retrieve.
         
         Raises:
             ValueError: If any parameter is invalid.
         """
-        if not index_endpoint_display_name:
-            raise ValueError("index_endpoint_name cannot be empty.")
-        if not deployed_index_id:
-            raise ValueError("deployed_index_id cannot be empty.")
+        if not self.index_endpoint_display_name:
+            raise ValueError("index_endpoint_display_name is not set in the configuration.")
+        if not self.deployed_index_id:
+            raise ValueError("deployed_index_id is not set in the configuration.")
         if not query_text:
             raise ValueError("query_text cannot be empty.")
         if not isinstance(num_neighbors, int) or num_neighbors <= 0:
@@ -143,18 +138,26 @@ class VectorSearcher:
         id_to_chunk = {}
         try:
             with open(chunks_file_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    chunk = json.loads(line.strip())
-                    chunk_id = chunk.get('id')
-                    text_content = chunk.get('text')
-                    document_name = chunk.get('document_name')
-                    page_number = chunk.get('page_number')
-                    if chunk_id and text_content:
-                        id_to_chunk[chunk_id] = {
-                            'content': text_content,
-                            'document_name': document_name,
-                            'page_number': page_number
-                        }
+                for line_number, line in enumerate(f, 1):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                        chunk_id = chunk.get('id')
+                        text_content = chunk.get('content')
+                        document_name = chunk.get('document_name')
+                        page_number = chunk.get('page_number')
+                        if chunk_id and text_content:
+                            id_to_chunk[chunk_id] = {
+                                'content': text_content,
+                                'document_name': document_name,
+                                'page_number': page_number
+                            }
+                        else:
+                            logging.warning(f"Line {line_number}: Missing 'id' or 'text' fields.")
+                    except json.JSONDecodeError as e:
+                        logging.error(f"Line {line_number}: JSONDecodeError - {e}", exc_info=True)
             logging.info(f"Loaded {len(id_to_chunk)} chunks into memory.")
             return id_to_chunk
         except FileNotFoundError:
@@ -169,8 +172,6 @@ class VectorSearcher:
 
     def vector_search(
         self,
-        index_endpoint_display_name: str,
-        deployed_index_id: str,
         query_text: str,
         num_neighbors: int = 5
     ) -> List[Dict]:
@@ -178,8 +179,6 @@ class VectorSearcher:
         Performs a vector search query against the deployed index.
         
         Args:
-            index_endpoint_name (str): Full resource name of the index endpoint.
-            deployed_index_id (str): ID of the deployed index.
             query_text (str): User query text.
             num_neighbors (int, optional): Number of nearest neighbors to retrieve. Defaults to 5.
         
@@ -188,7 +187,7 @@ class VectorSearcher:
         """
         # Validate search parameters
         try:
-            self.validate_search_params(index_endpoint_display_name, deployed_index_id, query_text, num_neighbors)
+            self.validate_search_params(query_text, num_neighbors)
         except ValueError as ve:
             logging.error(f"Invalid search parameters: {ve}", exc_info=True)
             raise
@@ -210,9 +209,9 @@ class VectorSearcher:
 
         # Retrieve the full resource name of the index endpoint
         try:
-            index_endpoint_resource_name = self.get_index_endpoint_resource_name(index_endpoint_display_name)
+            index_endpoint_resource_name = self.get_index_endpoint_resource_name(self.index_endpoint_display_name)
         except Exception as e:
-            logging.error(f"Failed to retrieve resource name for endpoint '{index_endpoint_display_name}': {e}", exc_info=True)
+            logging.error(f"Failed to retrieve resource name for endpoint '{self.index_endpoint_display_name}': {e}", exc_info=True)
             raise
 
         # Initialize the index endpoint with full resource name
@@ -226,7 +225,7 @@ class VectorSearcher:
         # Perform the search
         try:
             response = index_endpoint.find_neighbors(
-                deployed_index_id=deployed_index_id,
+                deployed_index_id=self.deployed_index_id,
                 queries=[query_embedding],
                 num_neighbors=num_neighbors,
             )

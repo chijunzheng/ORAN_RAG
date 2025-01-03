@@ -7,20 +7,14 @@ import re
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from google.cloud import storage
 from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
 import threading
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from vertexai.generative_models import GenerativeModel, GenerationConfig
-from vertexai.preview.language_models import TextEmbeddingModel, TextEmbeddingInput
-from vertexai.generative_models import (
-    GenerativeModel,
-    GenerationConfig,
-    Content,
-    Part
-)
+from vertexai.generative_models import GenerativeModel, GenerationConfig, Content, Part
 from src.vector_search.searcher import VectorSearcher
 
 
@@ -32,8 +26,6 @@ class Evaluator:
         bucket_name: str,
         embeddings_path: str,
         qna_dataset_path: str,
-        index_endpoint_display_name: str,
-        deployed_index_id: str,
         generation_config: Dict,
         vector_searcher: VectorSearcher,
         credentials,
@@ -50,13 +42,15 @@ class Evaluator:
             qna_dataset_path (str): Path to the Q&A dataset in GCS.
             generation_config (Dict): Configuration for text generation parameters.
             vector_searcher (VectorSearcher): Instance of VectorSearcher for performing vector searches.
+            credentials: Google Cloud credentials.
+            num_neighbors (int): Number of nearest neighbors to retrieve.
         """
         self.project_id = project_id
         self.location = location
         self.bucket_name = bucket_name
         self.embeddings_path = embeddings_path
         self.qna_dataset_path = qna_dataset_path
-        self.vector_searcher = vector_searcher  
+        self.vector_searcher = vector_searcher
         self.generative_model = GenerativeModel("gemini-1.5-flash-002")
         self.generation_config = GenerationConfig(
             temperature=generation_config.get('temperature', 0.7),
@@ -66,8 +60,6 @@ class Evaluator:
         self.storage_client = storage.Client(project=self.project_id, credentials=credentials)
         self.bucket = self.storage_client.bucket(self.bucket_name)
         self.num_neighbors = num_neighbors
-        self.index_endpoint_display_name = index_endpoint_display_name
-        self.deployed_index_id = deployed_index_id
 
         logging.info("Evaluator initialized successfully.")
 
@@ -129,8 +121,8 @@ class Evaluator:
         self,
         content: Content,
         retries: int = 10,
-        backoff_factor: int = 2,
-        max_wait: int = 30
+        backoff_factor: float = 2.0,
+        max_wait: float = 30.0
     ) -> str:
         """
         Generates content with exponential backoff and jitter.
@@ -138,13 +130,13 @@ class Evaluator:
         Args:
             content (Content): Content object for the generative model.
             retries (int, optional): Number of retry attempts. Defaults to 10.
-            backoff_factor (int, optional): Backoff multiplier. Defaults to 2.
-            max_wait (int, optional): Maximum wait time. Defaults to 30.
+            backoff_factor (float, optional): Backoff multiplier. Defaults to 2.0.
+            max_wait (float, optional): Maximum wait time. Defaults to 30.0.
 
         Returns:
             str: Generated text or "Error" upon failure.
         """
-        wait_time = 1
+        wait_time = 1.0
         for attempt in range(1, retries + 1):
             try:
                 response = self.generative_model.generate_content(
@@ -166,7 +158,7 @@ class Evaluator:
                 wait_time *= backoff_factor
         return "Error"
 
-    def extract_choice_from_answer(self, answer_text: str) -> str:
+    def extract_choice_from_answer(self, answer_text: str) -> Optional[str]:
         """
         Extracts the choice number from the model's answer.
 
@@ -174,7 +166,7 @@ class Evaluator:
             answer_text (str): The model's response.
 
         Returns:
-            str: Extracted choice number or None.
+            Optional[str]: Extracted choice number or None.
         """
         patterns = [
             r'The correct answer is[:\s]*([1-4])',
@@ -201,18 +193,20 @@ class Evaluator:
         """
         choices_text = "\n".join(choices)
         prompt_text = f"""
-        You are an expert in O-RAN systems. A user has provided the following multiple-choice question:
+You are an expert in O-RAN systems. A user has provided the following multiple-choice question:
 
-        Question: {question}
+Question: {question}
 
-        Choices:
-        {choices_text}
+Choices:
+{choices_text}
 
-        Please provide the correct answer choice number (1, 2, 3, or 4) only.
-        """
+Please provide the correct answer choice number (1, 2, 3, or 4) only.
+"""
         user_prompt = Content(
             role="user",
-            parts=[Part.from_text(prompt_text)]
+            parts=[
+                Part.from_text(prompt_text)
+            ]
         )
         return self.safe_generate_content(user_prompt)
 
@@ -238,30 +232,32 @@ class Evaluator:
         context = "\n\n".join([f"Chunk {i+1}:\n{chunk['content']}" for i, chunk in enumerate(top_chunks)])
         choices_text = "\n".join(choices)
         prompt_text = f"""
-        You are an expert in O-RAN systems. Utilize the context to provide detailed and accurate answers to the user's queries.
+You are an expert in O-RAN systems. Utilize the context to provide detailed and accurate answers to the user's queries.
 
-        Instruction:
-        Using the information provided in the context, please provide a logical and concise answer to the question below.
+Instruction:
+Using the information provided in the context, please provide a logical and concise answer to the question below.
 
-        If the question presents multiple choice options, you must:
-        - State the correct choice by its number (e.g., "The correct answer is: 3") at the start of your answer.
+If the question presents multiple choice options, you must:
+- State the correct choice by its number (e.g., "The correct answer is: 3") at the start of your answer.
 
-        Context:
-        {context}
+Context:
+{context}
 
-        Question:
-        {query}
+Question:
+{query}
 
-        Choices:
-        {choices_text}
+Choices:
+{choices_text}
 
-        Please provide the correct answer choice number (1, 2, 3, or 4) only.
+Please provide the correct answer choice number (1, 2, 3, or 4) only.
 
-        Answer:
-        """
+Answer:
+"""
         user_prompt = Content(
             role="user",
-            parts=[Part.from_text(prompt_text)]
+            parts=[
+                Part.from_text(prompt_text)
+            ]
         )
         return user_prompt
 
@@ -278,8 +274,6 @@ class Evaluator:
         """
         try:
             retrieved_chunks = self.vector_searcher.vector_search(
-                index_endpoint_display_name=self.index_endpoint_display_name,
-                deployed_index_id=self.deployed_index_id,
                 query_text=question,
                 num_neighbors=self.num_neighbors,
             )
@@ -359,113 +353,128 @@ class Evaluator:
         Returns:
             Tuple[float, float]: RAG and Gemini accuracies.
         """
-        qna_subset = qna_dataset[:num_questions]
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Evaluation Results"
-        headers = [
-            'Question',
-            'Correct Answer',
-            'RAG Predicted Answer',
-            'RAG Correct',
-            'Gemini Predicted Answer',
-            'Gemini Correct',
-        ]
-        ws.append(headers)
-        wb.save(excel_file_path)
-        logging.info(f"Excel file created at {excel_file_path}")
+        try:
+            # Validate excel_file_path
+            if os.path.isdir(excel_file_path):
+                raise IsADirectoryError(f"Excel file path '{excel_file_path}' is a directory.")
 
-        rag_correct = 0
-        gemini_correct = 0
-        processed = 0
+            # Select a subset of Q&A entries
+            selected_qnas = random.sample(qna_dataset, min(num_questions, len(qna_dataset)))
+            logging.info(f"Selected {len(selected_qnas)} Q&A entries for evaluation.")
 
-        excel_lock = threading.Lock()
-        rows_buffer = []
-        buffer_size = 100
+            # Initialize Excel Workbook
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Evaluation Results"
+            headers = [
+                'Question',
+                'Correct Answer',
+                'RAG Predicted Answer',
+                'RAG Correct',
+                'Gemini Predicted Answer',
+                'Gemini Correct'
+            ]
+            ws.append(headers)
+            wb.save(excel_file_path)
+            logging.info(f"Excel file created at {excel_file_path}")
 
-        def flush_rows_buffer():
-            if not rows_buffer:
-                return
-            with excel_lock:
-                for row in rows_buffer:
-                    ws.append(row)
-                wb.save(excel_file_path)
-            rows_buffer.clear()
+            # Initialize counters
+            rag_correct = 0
+            gemini_correct = 0
+            processed = 0
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(self.evaluate_single_entry, entry): idx
-                for idx, entry in enumerate(qna_subset, 1)
-            }
-            for future in tqdm(
-                as_completed(futures),
-                total=len(futures),
-                desc="Evaluating Q&A Entries"
-            ):
-                idx = futures[future]
-                try:
-                    result = future.result()
+            # Lock for writing to Excel
+            excel_lock = threading.Lock()
+            rows_buffer = []
+            buffer_size = 100  # Flush every 100 rows
 
-                    if result.get('RAG Correct'):
-                        rag_correct += 1
-                    if result.get('Gemini Correct'):
-                        gemini_correct += 1
+            def flush_rows_buffer():
+                if not rows_buffer:
+                    return
+                with excel_lock:
+                    for row in rows_buffer:
+                        ws.append(row)
+                    wb.save(excel_file_path)
+                rows_buffer.clear()
 
-                    processed += 1
-                    row = [
-                        result.get('Question', ''),
-                        result.get('Correct Answer', ''),
-                        result.get('RAG Predicted Answer', ''),
-                        result.get('RAG Correct', False),
-                        result.get('Gemini Predicted Answer', ''),
-                        result.get('Gemini Correct', False),
-                    ]
-                    rows_buffer.append(row)
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Using tqdm for progress bar
+                future_to_entry = {executor.submit(self.evaluate_single_entry, entry): entry for entry in selected_qnas}
+                for future in tqdm(as_completed(future_to_entry), total=len(future_to_entry), desc="Evaluating Q&A entries"):
+                    entry = future_to_entry[future]
+                    try:
+                        result = future.result()
 
-                    if len(rows_buffer) >= buffer_size:
-                        flush_rows_buffer()
+                        if result.get('RAG Correct'):
+                            rag_correct += 1
+                        if result.get('Gemini Correct'):
+                            gemini_correct += 1
 
-                except Exception as exc:
-                    logging.error(f"Exception for question {idx}: {exc}")
+                        processed += 1
+                        row = [
+                            result.get('Question', ''),
+                            result.get('Correct Answer', ''),
+                            result.get('RAG Predicted Answer', ''),
+                            result.get('RAG Correct', False),
+                            result.get('Gemini Predicted Answer', ''),
+                            result.get('Gemini Correct', False)
+                        ]
+                        rows_buffer.append(row)
 
-        flush_rows_buffer()
-        wb.close()
+                        if len(rows_buffer) >= buffer_size:
+                            flush_rows_buffer()
 
-        rag_accuracy = (rag_correct / processed) * 100.0 if processed > 0 else 0
-        gemini_accuracy = (gemini_correct / processed) * 100.0 if processed > 0 else 0
+                    except Exception as e:
+                        logging.error(f"Error processing entry: {e}", exc_info=True)
 
-        logging.info(f"RAG Accuracy: {rag_accuracy:.2f}%")
-        logging.info(f"Gemini Accuracy: {gemini_accuracy:.2f}%")
+            # Flush any remaining rows
+            flush_rows_buffer()
+            wb.close()
 
-        return rag_accuracy, gemini_accuracy
-    
+            # Calculate accuracies
+            rag_accuracy = (rag_correct / processed) * 100.0 if processed > 0 else 0.0
+            gemini_accuracy = (gemini_correct / processed) * 100.0 if processed > 0 else 0.0
 
+            logging.info(f"Evaluation completed. RAG Accuracy: {rag_accuracy}%, Gemini Accuracy: {gemini_accuracy}%")
 
-    def visualize_accuracies(self, rag_acc: float, gemini_acc: float, save_path: str = None):
+            return rag_accuracy, gemini_accuracy
+
+        except IsADirectoryError as e:
+            logging.error(e)
+            raise
+        except Exception as e:
+            logging.error(f"Failed during parallel evaluation: {e}", exc_info=True)
+            raise
+
+    def visualize_accuracies(self, rag_accuracy: float, gemini_accuracy: float, save_path: Optional[str] = None):
         """
-        Visualizes the accuracy comparison between RAG Pipeline and Gemini LLM.
+        Visualizes the accuracies of RAG and Gemini models.
 
         Args:
-            rag_acc (float): Accuracy of the RAG Pipeline.
-            gemini_acc (float): Accuracy of the Gemini LLM.
-            save_path (str, optional): Path to save the plot image. If None, the plot is displayed.
+            rag_accuracy (float): RAG model accuracy.
+            gemini_accuracy (float): Gemini model accuracy.
+            save_path (Optional[str], optional): Path to save the plot image. Defaults to None.
         """
-        models = ['RAG Pipeline', 'Raw Gemini LLM']
-        accuracies = [rag_acc, gemini_acc]
+        try:
+            models = ['RAG Pipeline', 'Raw Gemini LLM']
+            accuracies = [rag_accuracy, gemini_accuracy]
+            colors = ['blue', 'green']
 
-        plt.figure(figsize=(8,6))
-        bars = plt.bar(models, accuracies, color=['blue', 'green'])
-        plt.xlabel('Models')
-        plt.ylabel('Accuracy (%)')
-        plt.title('Model Accuracy Comparison')
-        plt.ylim(0, 100)
+            plt.figure(figsize=(8, 6))
+            bars = plt.bar(models, accuracies, color=colors)
+            plt.ylim(0, 100)
+            plt.ylabel('Accuracy (%)')
+            plt.title('Model Accuracy Comparison')
 
-        for bar in bars:
-            height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2.0, height, f'{height:.2f}%', ha='center', va='bottom')
+            # Annotate bars with accuracy values
+            for bar, acc in zip(bars, accuracies):
+                yval = bar.get_height()
+                plt.text(bar.get_x() + bar.get_width()/2.0, yval + 1, f"{acc:.2f}%", ha='center', va='bottom')
 
-        if save_path:
-            plt.savefig(save_path)
-            logging.info(f"Accuracy comparison plot saved to {save_path}")
-        else:
-            plt.show()
+            if save_path:
+                plt.savefig(save_path)
+                logging.info(f"Accuracy comparison plot saved to '{save_path}'.")
+            plt.close()
+        except Exception as e:
+            logging.error(f"Failed to generate accuracy plot: {e}", exc_info=True)
+            raise

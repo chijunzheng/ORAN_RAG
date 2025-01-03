@@ -4,6 +4,7 @@ import os
 from google.cloud import aiplatform
 import logging
 from typing import Optional, Tuple
+from src.utils.helpers import ensure_directory  # Ensure this import exists if used
 
 class VectorIndexer:
     def __init__(self, config: dict):
@@ -17,6 +18,11 @@ class VectorIndexer:
             # Extract vector_search configuration
             vector_search_config = config.get('vector_search', {})
             
+            # Update Method
+            self.update_method = vector_search_config.get('update_method', 'STREAM_UPDATE')
+            if self.update_method not in ['STREAM_UPDATE', 'BATCH_UPDATE']:
+                raise ValueError("update_method must be either 'STREAM_UPDATE' or 'BATCH_UPDATE'.")
+
             # Index creation parameters
             self.index_display_name = vector_search_config.get('index_display_name')
             self.index_description = vector_search_config.get('index_description', "Index for O-RAN document embeddings")
@@ -190,6 +196,33 @@ class VectorIndexer:
             logging.error(f"Failed to deploy index: {e}", exc_info=True)
             raise
 
+    def is_index_deployed(self, index: aiplatform.MatchingEngineIndex) -> bool:
+        """
+        Checks if the given index is already deployed on any existing endpoint.
+
+        Args:
+            index (aiplatform.MatchingEngineIndex): The index to check.
+
+        Returns:
+            bool: True if the index is deployed on at least one endpoint, False otherwise.
+        """
+        try:
+            endpoints = aiplatform.MatchingEngineIndexEndpoint.list()
+            for endpoint in endpoints:
+                for deployed_idx in endpoint.deployed_indexes:
+                    if deployed_idx.index == index.resource_name:
+                        logging.info(
+                            f"Index '{index.display_name}' "
+                            f"(resource_name='{index.resource_name}') is already deployed on "
+                            f"endpoint '{endpoint.display_name}' "
+                            f"(resource='{endpoint.resource_name}')."
+                        )
+                        return True
+            return False
+        except Exception as e:
+            logging.error(f"Failed to determine if index is deployed: {e}", exc_info=True)
+            return False
+        
     def create_index(self) -> aiplatform.MatchingEngineIndex:
         """
         Creates a Matching Engine index using the initialized parameters.
@@ -200,21 +233,161 @@ class VectorIndexer:
         logging.info(f"Creating Matching Engine index with display_name='{self.index_display_name}'")
         
         try:
+            if self.update_method == "STREAM_UPDATE":
+                index_type = "STREAM_UPDATE"
+            else:
+                index_type = "BATCH_UPDATE"
+            
             index = aiplatform.MatchingEngineIndex.create_tree_ah_index(
                 display_name=self.index_display_name,
                 description=self.index_description,
                 dimensions=self.dimensions,
+                index_update_method=index_type,
                 approximate_neighbors_count=self.approximate_neighbors_count,
                 leaf_node_embedding_count=self.leaf_node_embedding_count,
                 leaf_nodes_to_search_percent=self.leaf_nodes_to_search_percent,
                 distance_measure_type=self.distance_measure_type,
                 feature_norm_type=self.feature_norm_type,
-                contents_delta_uri=self.bucket_uri,
-                shard_size=self.shard_size
+                shard_size=self.shard_size,
+                # Content source can be specified here if needed
+                # e.g., contents_delta_uri=self.bucket_uri
             )
             index.wait()
             logging.info(f"Index created: {index.resource_name}")
             return index
         except Exception as e:
             logging.error(f"Failed to create index '{self.index_display_name}': {e}", exc_info=True)
+            raise
+
+    def get_index_by_display_name(self, display_name: str):
+        """
+        Retrieves an existing Matching Engine index based on its display name.
+
+        Args:
+            display_name (str): The display name of the index.
+
+        Returns:
+            aiplatform.MatchingEngineIndex: The matching index object.
+
+        Raises:
+            ValueError: If no index or multiple indexes with the same display name are found.
+        """
+        try:
+            indexes = aiplatform.MatchingEngineIndex.list()
+            logging.debug(f"Retrieved {len(indexes)} indexes from Matching Engine.")
+            matching_indexes = [idx for idx in indexes if idx.display_name == display_name]
+
+            if not matching_indexes:
+                logging.info(f"No MatchingEngineIndex found with display_name='{display_name}'.")
+                return None
+            elif len(matching_indexes) > 1:
+                raise ValueError(f"Multiple MatchingEngineIndexes found with display_name='{display_name}'. Ensure unique display names.")
+            
+            logging.info(f"Found MatchingEngineIndex with display_name='{display_name}': {matching_indexes[0].resource_name}")
+            return matching_indexes[0]
+        except Exception as e:
+            logging.error(f"Error retrieving index by display name: {e}", exc_info=True)
+            raise
+
+    def deploy_index_endpoint(self, index: aiplatform.MatchingEngineIndex) -> Tuple[aiplatform.MatchingEngineIndexEndpoint, str]:
+        """
+        Deploys the specified index to an endpoint.
+        
+        Args:
+            index (aiplatform.MatchingEngineIndex): The index to deploy.
+        
+        Returns:
+            Tuple[aiplatform.MatchingEngineIndexEndpoint, str]: The endpoint and deployed index ID.
+        """
+        try:
+            endpoint = self._get_or_create_endpoint()
+            deployed_index = endpoint.deploy_index(
+                index=index,
+                deployed_index_id=self.deployed_index_id,
+                machine_type=self.machine_type,
+                min_replica_count=self.min_replica_count,
+                max_replica_count=self.max_replica_count
+            )
+            deployed_index.wait()
+            logging.info(f"Successfully deployed index to endpoint: {endpoint.resource_name}")
+            
+            # Retrieve the deployed index ID
+            deployed_indexes = endpoint.deployed_indexes
+            deployed_index_id_retrieved = next((dep.id for dep in deployed_indexes if dep.index == index.resource_name), None)
+            if deployed_index_id_retrieved:
+                logging.info(f"Deployed Index ID: {deployed_index_id_retrieved}")
+            else:
+                logging.error(f"Deployed index ID not found for index '{index.display_name}'")
+                raise ValueError(f"Deployed index ID not found for index '{index.display_name}'")
+            
+            return endpoint, deployed_index_id_retrieved
+        
+        except Exception as e:
+            logging.error(f"Failed to deploy index to endpoint: {e}", exc_info=True)
+            raise
+
+    def get_index_endpoint_by_display_name(self, display_name: str):
+        """
+        Retrieves an existing Matching Engine index endpoint based on its display name.
+
+        Args:
+            display_name (str): The display name of the index endpoint.
+
+        Returns:
+            aiplatform.MatchingEngineIndexEndpoint: The matching index endpoint object.
+
+        Raises:
+            ValueError: If no endpoint or multiple endpoints with the same display name are found.
+        """
+        try:
+            endpoints = aiplatform.MatchingEngineIndexEndpoint.list()
+            logging.debug(f"Retrieved {len(endpoints)} index endpoints from Matching Engine.")
+            matching_endpoints = [ep for ep in endpoints if ep.display_name == display_name]
+
+            if not matching_endpoints:
+                logging.info(f"No MatchingEngineIndexEndpoint found with display_name='{display_name}'.")
+                return None
+            elif len(matching_endpoints) > 1:
+                raise ValueError(f"Multiple MatchingEngineIndexEndpoints found with display_name='{display_name}'. Ensure unique display names.")
+            
+            logging.info(f"Found MatchingEngineIndexEndpoint with display_name='{display_name}': {matching_endpoints[0].resource_name}")
+            return matching_endpoints[0]
+        except Exception as e:
+            logging.error(f"Error retrieving index endpoint by display name: {e}", exc_info=True)
+            raise
+    
+    def deploy_index_to_existing_endpoint(self, index: aiplatform.MatchingEngineIndex, endpoint: aiplatform.MatchingEngineIndexEndpoint) -> str:
+        """
+        Deploys a given Index to an existing Endpoint.
+
+        Args:
+            index (aiplatform.MatchingEngineIndex): The Index to deploy.
+            endpoint (aiplatform.MatchingEngineIndexEndpoint): The existing Endpoint.
+
+        Returns:
+            str: The deployed Index ID.
+        """
+        try:
+            logging.info(f"Deploying Index '{index.display_name}' to existing Endpoint '{endpoint.display_name}'.")
+            deployed_index = endpoint.deploy_index(
+                index=index,
+                deployed_index_id=self.deployed_index_id,
+                machine_type=self.machine_type,
+                min_replica_count=self.min_replica_count,
+                max_replica_count=self.max_replica_count
+            )
+            deployed_index.wait()
+            logging.info(f"Successfully deployed Index '{index.display_name}' to Endpoint '{endpoint.display_name}'.")
+
+            # Retrieve the deployed Index ID
+            deployed_indexes = endpoint.deployed_indexes
+            deployed_index_id_retrieved = next((dep.id for dep in deployed_indexes if dep.index == index.resource_name), None)
+            if deployed_index_id_retrieved:
+                logging.info(f"Deployed Index ID: {deployed_index_id_retrieved}")
+                return deployed_index_id_retrieved
+            else:
+                logging.error(f"Deployed Index ID not found for Index '{index.display_name}'.")
+                raise ValueError(f"Deployed Index ID not found for Index '{index.display_name}'.")
+        except Exception as e:
+            logging.error(f"Failed to deploy Index to existing Endpoint '{endpoint.display_name}': {e}", exc_info=True)
             raise

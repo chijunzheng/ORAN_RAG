@@ -8,57 +8,50 @@ from vertexai.generative_models import (
     GenerativeModel,
     GenerationConfig,
     Content,
-    Part
+    Part,
+    Tool
 )
 from vertexai.preview.language_models import TextEmbeddingModel, TextEmbeddingInput
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from src.evaluation.evaluator import Evaluator
+from vertexai.preview import rag
+from src.vector_search.searcher import VectorSearcher
+import vertexai
+
 
 class Chatbot:
     def __init__(
         self,
-        project_id: str,
-        location: str,
-        bucket_name: str,
-        embeddings_path: str,
-        bucket_uri: str,
-        index_endpoint_display_name: str,
-        deployed_index_id: str,
-        generation_temperature: float,
-        generation_top_p: float,
-        generation_max_output_tokens: int,
-        vector_searcher,  
+        config: dict,
+        vector_searcher: VectorSearcher,  
         credentials,
-        num_neighbors: int
     ):
         """
         Initializes the Chatbot with specific configuration parameters.
-        
+
         Args:
-            project_id (str): Google Cloud project ID.
-            location (str): Google Cloud location (e.g., 'us-central1').
-            bucket_name (str): Name of the GCS bucket.
-            embeddings_path (str): Path within the GCS bucket for embeddings.
-            bucket_uri (str): URI of the GCS bucket.
-            index_endpoint_name (str): Name of the index endpoint.
-            deployed_index_id (str): ID of the deployed index.
-            generation_temperature (float): Temperature parameter for generation.
-            generation_top_p (float): Top-p parameter for generation.
-            generation_max_output_tokens (int): Maximum tokens for generation.
+            config (dict): Configuration dictionary containing all necessary parameters.
             vector_searcher (VectorSearcher): Instance of VectorSearcher for performing searches.
+            credentials: Google Cloud credentials.
         """
         try:
-            self.project_id = project_id
-            self.location = location
-            self.bucket_name = bucket_name
-            self.embeddings_path = embeddings_path
-            self.bucket_uri = bucket_uri
-            self.index_endpoint_display_name = index_endpoint_display_name
-            self.deployed_index_id = deployed_index_id
+            self.project_id = config.get('gcp', {}).get('project_id')
+            self.location = config.get('gcp', {}).get('location')
+            self.bucket_name = config.get('gcp', {}).get('bucket_name')
+            self.embeddings_path = config.get('gcp', {}).get('embeddings_path')
+            self.bucket_uri = config.get('gcp', {}).get('bucket_uri')
+            self.index_display_name = config.get('vector_search', {}).get('index_display_name')
+            self.endpoint_display_name = config.get('vector_search', {}).get('endpoint_display_name')
+            self.deployed_index_id = config.get('vector_search', {}).get('deployed_index_id')
+            self.num_neighbors = config.get('vector_search', {}).get('num_neighbors', 10)
+            self.generation_temperature = config.get('generation', {}).get('temperature', 0.7)
+            self.generation_top_p = config.get('generation', {}).get('top_p', 0.9)
+            self.generation_max_output_tokens = config.get('generation', {}).get('max_output_tokens', 2000)
+            self.generative_model_name = config.get('generation', {}).get('generative_model_name', "gemini-1.5-flash-002")
+            self.rag_corpus_resource = config.get('vector_search', {}).get('rag_corpus_resource')
             self.vector_searcher = vector_searcher
-            self.num_neighbors = num_neighbors
+            self.credentials = credentials
 
-            # Initialize AI Platform
+            # Initialize AI Platform and Vertex AI
+            vertexai.init(project=self.project_id, location=self.location, credentials=credentials)
             aiplatform.init(project=self.project_id, location=self.location, credentials=credentials)
             logging.info(f"Initialized Chatbot with project_id='{self.project_id}', location='{self.location}', bucket_uri='{self.bucket_uri}'")
 
@@ -66,22 +59,69 @@ class Chatbot:
             self.db = firestore.Client(project=self.project_id, credentials=credentials)
             logging.info("Initialized Firestore client.")
 
-            # Initialize Generative Model
-            self.generative_model = GenerativeModel("gemini-1.5-flash-002")
-            logging.info("Initialized GenerativeModel 'gemini-1.5-flash-002'.")
+            # Initialize Vertex AI Generative Model
+            self.generative_model = GenerativeModel(self.generative_model_name)
+            logging.info(f"Initialized GenerativeModel '{self.generative_model_name}'.")
 
             # Setup Generation Configuration
             self.generation_config = GenerationConfig(
-                temperature=generation_temperature,
-                top_p=generation_top_p,
-                max_output_tokens=generation_max_output_tokens,
+                temperature=self.generation_temperature,
+                top_p=self.generation_top_p,
+                max_output_tokens=self.generation_max_output_tokens,
             )
+
+            # Initialize RAG API with Retrieval and Reranking
+            self.initialize_rag_model()
 
         except KeyError as ke:
             logging.error(f"Missing configuration key: {ke}", exc_info=True)
             raise
         except Exception as e:
             logging.error(f"Failed to initialize Chatbot: {e}", exc_info=True)
+            raise
+
+    def initialize_rag_model(self):
+        """
+        Initializes the RAG Generative Model with Retrieval capabilities.
+        """
+        try:
+            # Define RAG Retrieval Configuration
+            rag_retrieval_config = rag.RagRetrievalConfig(
+                top_k=self.num_neighbors,
+                
+            )
+
+            # Define RAG Resources
+            rag_retrieval_resources = [
+                rag.RagResource(
+                    rag_corpus=self.rag_corpus_resource
+                )
+            ]
+
+            # Initialize RAG Retrieval
+            rag_retrieval = rag.Retrieval(
+                source=rag.VertexRagStore(
+                    rag_resources=rag_retrieval_resources,
+                    rag_retrieval_config=rag_retrieval_config
+                )
+            )
+
+            # Initialize RAG Retrieval Tool
+            rag_retrieval_tool = Tool.from_retrieval(
+                retrieval=rag_retrieval
+            )
+
+            # Initialize the RAG Generative Model with the Retrieval Tool and Generative Model
+            self.rag_model = GenerativeModel(
+                model_name=self.generative_model_name,  # Generative model from config
+                tools=[rag_retrieval_tool],
+                generation_config=self.generation_config
+            )
+
+            logging.info("Initialized RAG GenerativeModel with Retrieval and Generative Model for generation.")
+
+        except Exception as e:
+            logging.error(f"Failed to initialize RAG model: {e}", exc_info=True)
             raise
 
     def generate_session_id(self) -> str:
@@ -91,7 +131,7 @@ class Chatbot:
     def save_conversation(self, session_id: str, conversation_history: List[Dict]):
         """
         Saves the conversation history to Firestore.
-        
+
         Args:
             session_id (str): Unique session identifier.
             conversation_history (List[Dict]): List of conversation turns.
@@ -108,10 +148,10 @@ class Chatbot:
     def load_conversation(self, session_id: str) -> List[Dict]:
         """
         Loads the conversation history from Firestore.
-        
+
         Args:
             session_id (str): Unique session identifier.
-        
+
         Returns:
             List[Dict]: List of conversation turns.
         """
@@ -131,12 +171,12 @@ class Chatbot:
     def generate_prompt_content(self, query: str, chunks: List[Dict], conversation_history: List[Dict]) -> Content:
         """
         Generates the prompt content for the LLM.
-        
+
         Args:
             query (str): User's query.
             chunks (List[Dict]): Retrieved text chunks.
             conversation_history (List[Dict]): Past conversation history.
-        
+
         Returns:
             Content: The prompt content object.
         """
@@ -200,15 +240,15 @@ Answer:
     def generate_response(self, prompt_content: Content) -> str:
         """
         Generates a response from the generative model.
-        
+
         Args:
             prompt_content (Content): The prompt content object.
-        
+
         Returns:
             str: The assistant's response.
         """
         try:
-            response = self.generative_model.generate_content(
+            response = self.rag_model.generate_content(
                 prompt_content,
                 generation_config=self.generation_config,
             )
@@ -245,8 +285,6 @@ Answer:
 
             try:
                 retrieved_chunks = self.vector_searcher.vector_search(
-                    index_endpoint_display_name=self.index_endpoint_display_name,
-                    deployed_index_id=self.deployed_index_id,
                     query_text=query_text,
                     num_neighbors=self.num_neighbors,
                 )
@@ -275,4 +313,5 @@ Answer:
                 self.save_conversation(session_id, conversation_history)
             except Exception as e:
                 logging.error(f"Failed to save conversation history: {e}", exc_info=True)
-                print("Chatbot: Warning, your conversation history could not be saved.\n")
+                print("Chatbot: Warning - Failed to save conversation history.\n")
+                continue
