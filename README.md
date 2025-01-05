@@ -98,6 +98,11 @@ vector_search:
   # Parameters for search
   num_neighbors: 10
 
+ranking:
+  ranking_config: "default_ranking_config"  
+  model: "semantic-ranker-512@latest" 
+  rerank_top_n: 10  
+
 chunking:
   chunk_size: 1536  # Maximum number of characters per chunk
   chunk_overlap: 256  # Number of overlapping characters between chunks
@@ -123,16 +128,18 @@ evaluation:
 - **gcp:** Contains GCP-related configurations such as project ID, location, bucket names, paths for embeddings, Q&A datasets, and service account credentials.
 - **paths:** Specifies local paths for storing documents and embeddings.
 - **vector_search:** Configures parameters related to vector indexing and searching, including index names, descriptions, dimensions, and deployment settings.
+- **ranking:** Configuration of the reranking behavior including ranking configuration name, ranking model, and number of top ranked chunks to pass to the LLM.
 - **chunking:** Defines how documents are split into chunks, including size, overlap, separators, and minimum character count.
 - **generation:** Sets parameters for text generation models like temperature, top-p, and maximum output tokens.
 - **logging:** Specifies the path for log files to monitor and debug the system.
 - **evaluation:** Configures settings for evaluating the performance of the RAG pipeline and Gemini LLM, including the number of questions, paths for saving results, and plot configurations.
 
 **Customization:**
-- Service Account Credentials: Ensure that the credentials_path points to the downloaded IAM service account key JSON file.
-- File Paths: Update the paths under paths, logging, and evaluation sections to match your local or cloud storage directories.
-- Vector Search Parameters: Adjust parameters like dimensions, num_neighbors, and deployment settings based on your project’s requirements and the scale of your data.
-- Chunking and Generation: Modify chunk_size, chunk_overlap, and generation parameters to optimize for performance and accuracy.
+- **Service Account Credentials:** Ensure that the credentials_path points to the downloaded IAM service account key JSON file.
+- **File Paths:** Update the paths under paths, logging, and evaluation sections to match your local or cloud storage directories.
+- **Vector Search Parameters:** Adjust parameters like dimensions, num_neighbors, and deployment settings based on your project’s requirements and the scale of your data.
+- **Reranking Parameters:** Modify rerank_top_n under the ranking section to control the number of top reranked chunks passed to the LLM.
+- **Chunking and Generation:** Modify chunk_size, chunk_overlap, and generation parameters to optimize for performance and accuracy.
 
 ## Usage
 The primary entry point of the ORAN RAG system is main.py. This script orchestrates the entire pipeline, from preprocessing documents to deploying the vector index and optionally running evaluations.
@@ -237,6 +244,7 @@ python src/main.py --help
 - **Chunking:** Splits documents into context-rich chunks for efficient embedding and indexing.
 - **Embedding Generation:** Generates embeddings for each chunk using state-of-the-art models.
 - **Vector Indexing:** Creates and manages vector indexes for efficient similarity search.
+- **Reranking Module:** Reorders retrieved search results based on their semantic relevance to the query, enhancing the quality and accuracy of responses.
 - **Chatbot Interface:** Interactive chatbot that utilizes the indexed data to answer user queries.
 - **Evaluation Module:** Compares the performance of the RAG pipeline against the raw Gemini LLM using a predefined Q&A dataset.
 - **Logging:** Comprehensive logging for monitoring and debugging.
