@@ -5,7 +5,7 @@ gcp:
   embeddings_path: "embeddings/"
   bucket_uri: "gs://oran-rag-bucket-us-central/embeddings/"
   qna_dataset_path: "dataset/Q&A_ds_H.json"
-  credentials_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/oranrag-893f56785868.json"
+  credentials_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My\ Drive/1.Projects/ORAN_RAG/oranrag-646fb8ae6b7f.json"
 
 paths:
   documents: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Documents/"
@@ -32,7 +32,12 @@ vector_search:
   max_replica_count: 2
 
   # Parameters for search
-  num_neighbors: 10
+  num_neighbors: 30
+
+ranking:
+  ranking_config: "default_ranking_config"  
+  model: "semantic-ranker-512@latest" 
+  rerank_top_n: 10
 
 chunking:
   chunk_size: 1536  # Maximum number of characters per chunk
@@ -49,7 +54,7 @@ logging:
   log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/log/oran_rag.log"  # User-defined path for log files
 
 evaluation:
-  num_questions: 10
+  num_questions: 100
   excel_file_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Evaluation/evaluation_results.xlsx"
   max_workers: 1
   plot_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Evaluation/accuracy_plots.png"

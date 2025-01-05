@@ -13,6 +13,7 @@ from vertexai.generative_models import (
 from vertexai.preview.language_models import TextEmbeddingModel, TextEmbeddingInput
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from src.evaluation.evaluator import Evaluator
+from src.vector_search.reranker import Reranker
 
 class Chatbot:
     def __init__(
@@ -29,7 +30,8 @@ class Chatbot:
         generation_max_output_tokens: int,
         vector_searcher,  
         credentials,
-        num_neighbors: int
+        num_neighbors: int,
+        reranker: Reranker
     ):
         """
         Initializes the Chatbot with specific configuration parameters.
@@ -40,12 +42,13 @@ class Chatbot:
             bucket_name (str): Name of the GCS bucket.
             embeddings_path (str): Path within the GCS bucket for embeddings.
             bucket_uri (str): URI of the GCS bucket.
-            index_endpoint_name (str): Name of the index endpoint.
+            index_endpoint_display_name (str): Name of the index endpoint.
             deployed_index_id (str): ID of the deployed index.
             generation_temperature (float): Temperature parameter for generation.
             generation_top_p (float): Top-p parameter for generation.
             generation_max_output_tokens (int): Maximum tokens for generation.
             vector_searcher (VectorSearcher): Instance of VectorSearcher for performing searches.
+            reranker (Reranker): Instance of Reranker for reranking results.
         """
         try:
             self.project_id = project_id
@@ -57,6 +60,7 @@ class Chatbot:
             self.deployed_index_id = deployed_index_id
             self.vector_searcher = vector_searcher
             self.num_neighbors = num_neighbors
+            self.reranker = reranker
 
             # Initialize AI Platform
             aiplatform.init(project=self.project_id, location=self.location, credentials=credentials)
@@ -145,11 +149,9 @@ class Chatbot:
             history_text += f"User: {turn['user']}\nAssistant: {turn['assistant']}\n"
         history_text += f"User: {query}\n"
 
-        sorted_chunks = sorted(chunks, key=lambda x: x['distance'])
-        top_chunks = sorted_chunks[:15]
         context = "\n\n".join([
             f"Chunk {i+1} ({chunk['document_name']}, Page {chunk['page_number']}):\n{chunk['content']}"
-            for i, chunk in enumerate(top_chunks)
+            for i, chunk in enumerate(chunks)
         ])
 
         prompt_text = f"""
@@ -244,35 +246,44 @@ Answer:
                 continue
 
             try:
+                # Step 1: Vector Search
                 retrieved_chunks = self.vector_searcher.vector_search(
                     index_endpoint_display_name=self.index_endpoint_display_name,
                     deployed_index_id=self.deployed_index_id,
                     query_text=query_text,
-                    num_neighbors=self.num_neighbors,
+                    num_neighbors=self.num_neighbors
                 )
-                logging.info(f"Retrieved {len(retrieved_chunks)} chunks for the query.")
-            except Exception as e:
-                logging.error(f"Vector search failed: {e}", exc_info=True)
-                print("Chatbot: I'm sorry, I couldn't retrieve the necessary information to answer your query.\n")
-                continue
 
-            try:
-                prompt_content = self.generate_prompt_content(query_text, retrieved_chunks, conversation_history)
+                # Step 2: Reranking
+                reranked_chunks = self.reranker.rerank(
+                    query=query_text,
+                    records=retrieved_chunks,
+                )
+
+                if not reranked_chunks:
+                    logging.warning("Reranking returned no results.")
+                    print("Chatbot: I'm sorry, I couldn't retrieve the necessary information to answer your query.\n")
+                    continue
+
+                logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
+
+                # Step 3: Generate Prompt
+                prompt_content = self.generate_prompt_content(
+                    query=query_text,
+                    chunks=reranked_chunks,
+                    conversation_history=conversation_history
+                )
+
+                # Step 4: Generate Response
                 assistant_response = self.generate_response(prompt_content)
-            except Exception as e:
-                logging.error(f"Failed to generate assistant response: {e}", exc_info=True)
-                print("Chatbot: I'm sorry, I encountered an error while generating a response.\n")
-                continue
 
-            print(f"Chatbot: {assistant_response}\n")
-
-            conversation_history.append({
-                'user': query_text,
-                'assistant': assistant_response
-            })
-
-            try:
+                # Step 5: Update Conversation History
+                conversation_history.append({"user": query_text, "assistant": assistant_response})
                 self.save_conversation(session_id, conversation_history)
+
+                # Step 6: Display Assistant Response
+                print(f"Chatbot: {assistant_response}\n")
+
             except Exception as e:
-                logging.error(f"Failed to save conversation history: {e}", exc_info=True)
-                print("Chatbot: Warning, your conversation history could not be saved.\n")
+                logging.error(f"Failed during search or reranking: {e}", exc_info=True)
+                print("Chatbot: I'm sorry, I couldn't retrieve the necessary information to answer your query.\n")

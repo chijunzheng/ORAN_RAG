@@ -24,6 +24,7 @@ from src.vector_search.indexer import VectorIndexer
 from src.vector_search.searcher import VectorSearcher
 from src.chatbot.chatbot import Chatbot
 from src.evaluation.evaluator import Evaluator
+from src.vector_search.reranker import Reranker
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -120,6 +121,7 @@ def main():
     generation_config = config['generation']
     logging_config = config['logging']
     evaluation_config = config['evaluation']
+    ranking_config = config['ranking']
 
     # Validate chunk_size and chunk_overlap
     if chunking_config['chunk_size'] <= 0:
@@ -160,17 +162,31 @@ def main():
         logging.error(f"Failed to initialize VectorIndexer: {e}")
         sys.exit(1)
 
+    # Initialize Reranker
+    try:
+        reranker = Reranker(
+            project_id=gcp_config['project_id'],
+            location=gcp_config['location'],
+            ranking_config=ranking_config['ranking_config'],
+            credentials=auth_manager.credentials,
+            model=ranking_config['model'],
+            rerank_top_n=ranking_config['rerank_top_n']
+        )
+    except Exception as e:
+        logging.error(f"Failed to initialize Reranker: {e}")
+        sys.exit(1)
+
     # 1. Preprocessing Stage
     if not skip_preprocessing:
         logging.info("Starting preprocessing stages.")
         # Perform Preprocessing
-        converter = DocumentConverter(directory_path=config['paths']['documents'])
-        try:
-            converter.convert_docx_to_pdf()
-            logging.info("Document conversion completed.")
-        except Exception as e:
-            logging.error(f"Document conversion failed: {e}")
-            sys.exit(1)
+        # converter = DocumentConverter(directory_path=config['paths']['documents'])
+        # try:
+        #     converter.convert_docx_to_pdf()
+        #     logging.info("Document conversion completed.")
+        # except Exception as e:
+        #     logging.error(f"Document conversion failed: {e}")
+        #     sys.exit(1)
 
         # Load PDFs
         loader = PDFLoader(pdf_directory=config['paths']['documents'])
@@ -305,6 +321,7 @@ def main():
                 generation_top_p=generation_config.get('top_p'),
                 generation_max_output_tokens=generation_config.get('max_output_tokens'),
                 vector_searcher=vector_searcher,
+                reranker=reranker,
                 credentials=auth_manager.credentials,
                 num_neighbors=vector_search_config.get('num_neighbors')
             )
@@ -324,13 +341,14 @@ def main():
                 location=gcp_config['location'],
                 bucket_name=gcp_config['bucket_name'],
                 index_endpoint_display_name=vector_search_config['endpoint_display_name'],
-                deployed_index_id=vector_search_config.get('deployed_index_id'),
+                deployed_index_id=vector_search_config['deployed_index_id'],
                 embeddings_path=gcp_config['embeddings_path'],
                 qna_dataset_path=config['gcp']['qna_dataset_path'],
                 generation_config=generation_config,  
                 vector_searcher=vector_searcher, 
                 credentials=auth_manager.credentials,
-                num_neighbors=vector_search_config['num_neighbors']
+                num_neighbors=vector_search_config['num_neighbors'],
+                reranker=reranker
             )
             qna_dataset = evaluator.load_qna_dataset_from_gcs()
             num_questions = evaluation_config['num_questions']

@@ -22,7 +22,7 @@ from vertexai.generative_models import (
     Part
 )
 from src.vector_search.searcher import VectorSearcher
-
+from src.vector_search.reranker import Reranker
 
 class Evaluator:
     def __init__(
@@ -37,7 +37,8 @@ class Evaluator:
         generation_config: Dict,
         vector_searcher: VectorSearcher,
         credentials,
-        num_neighbors: int
+        num_neighbors: int,
+        reranker: Reranker
     ):
         """
         Initializes the Evaluator with necessary configurations.
@@ -68,6 +69,8 @@ class Evaluator:
         self.num_neighbors = num_neighbors
         self.index_endpoint_display_name = index_endpoint_display_name
         self.deployed_index_id = deployed_index_id
+        self.reranker = reranker
+
 
         logging.info("Evaluator initialized successfully.")
 
@@ -233,9 +236,8 @@ class Evaluator:
         Returns:
             Content: The prompt content object.
         """
-        sorted_chunks = sorted(chunks, key=lambda x: x['distance'])
-        top_chunks = sorted_chunks[:5]
-        context = "\n\n".join([f"Chunk {i+1}:\n{chunk['content']}" for i, chunk in enumerate(top_chunks)])
+
+        context = "\n\n".join([f"Chunk {i+1}:\n{chunk['content']}" for i, chunk in enumerate(chunks)])
         choices_text = "\n".join(choices)
         prompt_text = f"""
         You are an expert in O-RAN systems. Utilize the context to provide detailed and accurate answers to the user's queries.
@@ -277,22 +279,39 @@ class Evaluator:
             str: The model's answer.
         """
         try:
+            # Step 1: Vector Search
             retrieved_chunks = self.vector_searcher.vector_search(
                 index_endpoint_display_name=self.index_endpoint_display_name,
                 deployed_index_id=self.deployed_index_id,
                 query_text=question,
                 num_neighbors=self.num_neighbors,
             )
+
+            if not retrieved_chunks:
+                logging.warning("No chunks retrieved for the query.")
+                return "No relevant information found."
+
+            # Step 2: Reranking
+            reranked_chunks = self.reranker.rerank(
+                query=question,
+                records=retrieved_chunks,
+            )
+            logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
+            
+            if not reranked_chunks:
+                logging.warning("Reranking returned no results.")
+                return "No relevant information found after reranking."
+
+            # Step 3: Generate Prompt with Reranked Chunks
+            prompt_content = self.generate_prompt_content_evaluation(question, choices, reranked_chunks)
+
+            # Step 4: Generate Response from RAG Pipeline
+            assistant_response = self.safe_generate_content(prompt_content)
+            return assistant_response.strip() if assistant_response else "Error"
+
         except Exception as e:
-            logging.error(f"Vector search failed during RAG query: {e}", exc_info=True)
+            logging.error(f"Error in RAG pipeline for question '{question}': {e}", exc_info=True)
             return "Error"
-
-        if not retrieved_chunks:
-            return "No relevant information found."
-
-        prompt_content = self.generate_prompt_content_evaluation(question, choices, retrieved_chunks)
-        assistant_response = self.safe_generate_content(prompt_content)
-        return assistant_response.strip() if assistant_response else "Error"
 
     def evaluate_single_entry(self, entry: List[str], delay: float = 0.5) -> Dict:
         """

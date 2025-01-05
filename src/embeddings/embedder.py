@@ -57,7 +57,7 @@ class Embedder:
                 for i in range(0, len(chunks), batch_size):
                     batch = chunks[i:i + batch_size]
                     embedding_inputs = [
-                        TextEmbeddingInput(task_type="RETRIEVAL_DOCUMENT", text=chunk['text']) for chunk in batch
+                        TextEmbeddingInput(task_type="RETRIEVAL_DOCUMENT", text=chunk['content']) for chunk in batch
                     ]
                     embeddings = self.embedding_model.get_embeddings(embedding_inputs)
                     

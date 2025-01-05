@@ -104,7 +104,7 @@ class DocumentChunker:
             
             chunk = {
                 'id': chunk_id,
-                'text': doc.page_content,
+                'content': doc.page_content,
                 'document_name': document_name,
                 'page_number': page_number,
                 'char_count': char_count  # Added char_count
