@@ -1,0 +1,14 @@
+google-cloud-aiplatform
+google-cloud-storage
+google-cloud-firestore
+google-cloud-discoveryengine
+python-docx
+docx2pdf
+pymupdf
+langchain
+tqdm
+openpyxl
+matplotlib
+PyYAML
+pandas
+ftfy
