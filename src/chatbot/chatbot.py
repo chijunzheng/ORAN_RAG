@@ -155,42 +155,59 @@ class Chatbot:
         ])
 
         prompt_text = f"""
-You are an expert in O-RAN systems. Utilize the conversation history and context to provide detailed and accurate answers to the user's queries.
+        <purpose>
+            You are an expert in O-RAN systems. Utilize the conversation history and context to provide detailed and accurate answers to the user's queries.
+        </purpose>
 
-Instruction:
-Using the information provided in the context, please provide a logical and concise answer to the question below. Focus on delivering the best possible answer based on the available data without mentioning any limitations or referencing the context explicitly. Ensure that your answer covers all relevant aspects and includes necessary details.
+        <instructions>
+            <instruction>Use the context and conversation history to form a concise, thorough response.</instruction>
+            <instruction>Cover all relevant aspects in a clear, step-by-step manner.</instruction>
+            <instruction>Follow the specified answer format, headings, and style guides.</instruction>
+            <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
+        </instructions>
 
-Context:
-{context}
+        <context>
+        {context}
+        </context>
 
-Conversation History:
-{history_text}
+        <conversation-history>
+        {history_text}
+        </conversation-history>
 
-Question:
-{query}
+        <question>
+        {query}
+        </question>
 
-Answer Format:
-- Begin with a brief introduction summarizing the procedure.
-- Organize your answer using high-level headings if applicable, for better readability. Use numbered lists for main steps and bullet points for sub-steps.
-- Use clear and simple language that is easy to understand.
-- Include relevant background information and technical details from other documents where applicable.
-- Use markdown to make the content appealing and easy to read.
-- **Include references only once after each major heading or section. Do not include references after individual sentences, numbered lists, or bullet points.**
-  - **Format references as:** *(Reference: [Document Name], page [Page Number(s)])*
+        <sections>
+            <answer-format>
+                Begin with a brief introduction summarizing the entire answer.
+                Use high-level headings (##) and subheadings (###) to organize content.
+                Present information in bullet points and/or numbered lists to show the hierarchical structure.
+                **Do not** include a heading for the Introduction and Conclusion sections.
+                Include references once after each main heading or section, formatted as *(Reference: [Document Name], page [Page Number(s)])*.
+            </answer-format>
+            <markdown-guidelines>
+                <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
+                <markdown-guideline>Use bullet points ( - or * ) for sub-steps and indent consistently.</markdown-guideline>
+                <markdown-guideline>Use **bold** for emphasis and *italics* for subtle highlights.</markdown-guideline>
+            </markdown-guidelines>
+            <important-notes>
+                <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
+                <important-note>Be logical and concise, while providing as much details as possible.</important-note>
+                <important-note>Ensure the explanation is presented step-by-step, covering relevant stages.</important-note>
+            </important-notes>
+            <audience>
+                Engineers new to O-RAN systems.
+            </audience>
+            <tone>
+                Professional and informative.
+            </tone>
+        </sections>
 
-**Important Notes:**
-- Focus on delivering a complete answer that fully addresses the query.
-- Be logical and concise, shortening the answer while retaining key main ideas.
-- Ensure that the explanation is presented in a step-by-step manner, covering all stages relevant to the question.
+        <answer>
 
-Audience:
-Engineers new to O-RAN systems.
-
-Tone:
-Professional and informative.
-
-Answer:
-"""
+        </answer>
+        """
         user_prompt_content = Content(
             role="user",
             parts=[
@@ -221,69 +238,54 @@ Answer:
             logging.error(f"Error generating response: {e}", exc_info=True)
             return "I'm sorry, I encountered an error while processing your request."
 
-    def chat_loop(self):
+    def get_response(self, user_query: str, conversation_history: List[Dict]) -> str:
         """
-        Starts the chatbot interaction loop.
+        Processes the user query along with conversation history and returns the chatbot response.
+        
+        Args:
+            user_query (str): The user's query.
+            conversation_history (List[Dict]): List of previous conversation turns.
+        
+        Returns:
+            str: The chatbot's response.
         """
-        session_id = self.generate_session_id()
-        conversation_history = self.load_conversation(session_id)
+        try:
+            # 1. Retrieve relevant chunks using vector search
+            retrieved_chunks = self.vector_searcher.vector_search(
+                index_endpoint_display_name=self.index_endpoint_display_name,
+                deployed_index_id=self.deployed_index_id,
+                query_text=user_query,
+                num_neighbors=self.num_neighbors
+            )
+            logging.info(f"Retrieved {len(retrieved_chunks)} chunks for the query.")
 
-        print("Welcome to the O-RAN Chatbot! Type 'exit' to quit.\n")
+            if not retrieved_chunks:
+                logging.warning("No chunks retrieved for the query.")
+                return "I'm sorry, I couldn't find relevant information to answer your question."
 
-        while True:
-            try:
-                query_text = input("User: ")
-            except (EOFError, KeyboardInterrupt):
-                print("\nChatbot: Goodbye!")
-                break
+            # 2. Rerank the retrieved chunks
+            reranked_chunks = self.reranker.rerank(
+                query=user_query,
+                records=retrieved_chunks
+            )
+            logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
 
-            if query_text.lower() in ['exit', 'quit']:
-                print("Chatbot: Goodbye!")
-                break
+            if not reranked_chunks:
+                logging.warning("Reranking returned no results.")
+                return "I'm sorry, I couldn't find relevant information after reranking."
 
-            if not query_text.strip():
-                print("Chatbot: Please enter a valid query.\n")
-                continue
+            # 3. Generate prompt with reranked chunks and conversation history
+            prompt_content = self.generate_prompt_content(
+                query=user_query,
+                chunks=reranked_chunks,
+                conversation_history=conversation_history
+            )
 
-            try:
-                # Step 1: Vector Search
-                retrieved_chunks = self.vector_searcher.vector_search(
-                    index_endpoint_display_name=self.index_endpoint_display_name,
-                    deployed_index_id=self.deployed_index_id,
-                    query_text=query_text,
-                    num_neighbors=self.num_neighbors
-                )
+            # 4. Generate response from the model
+            assistant_response = self.generate_response(prompt_content)
 
-                # Step 2: Reranking
-                reranked_chunks = self.reranker.rerank(
-                    query=query_text,
-                    records=retrieved_chunks,
-                )
+            return assistant_response.strip() if assistant_response else "I'm sorry, I couldn't generate a response."
 
-                if not reranked_chunks:
-                    logging.warning("Reranking returned no results.")
-                    print("Chatbot: I'm sorry, I couldn't retrieve the necessary information to answer your query.\n")
-                    continue
-
-                logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
-
-                # Step 3: Generate Prompt
-                prompt_content = self.generate_prompt_content(
-                    query=query_text,
-                    chunks=reranked_chunks,
-                    conversation_history=conversation_history
-                )
-
-                # Step 4: Generate Response
-                assistant_response = self.generate_response(prompt_content)
-
-                # Step 5: Update Conversation History
-                conversation_history.append({"user": query_text, "assistant": assistant_response})
-                self.save_conversation(session_id, conversation_history)
-
-                # Step 6: Display Assistant Response
-                print(f"Chatbot: {assistant_response}\n")
-
-            except Exception as e:
-                logging.error(f"Failed during search or reranking: {e}", exc_info=True)
-                print("Chatbot: I'm sorry, I couldn't retrieve the necessary information to answer your query.\n")
+        except Exception as e:
+            logging.error(f"Error in get_response: {e}", exc_info=True)
+            return "I'm sorry, an error occurred while processing your request."

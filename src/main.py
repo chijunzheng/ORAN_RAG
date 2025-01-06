@@ -316,17 +316,17 @@ def main():
                 embeddings_path=gcp_config['embeddings_path'],
                 bucket_uri=gcp_config['bucket_uri'],
                 index_endpoint_display_name=vector_search_config['endpoint_display_name'],
-                deployed_index_id=vector_search_config.get('deployed_index_id'),
-                generation_temperature=generation_config.get('temperature'),
-                generation_top_p=generation_config.get('top_p'),
-                generation_max_output_tokens=generation_config.get('max_output_tokens'),
+                deployed_index_id=vector_search_config['deployed_index_id'],
+                generation_temperature=generation_config['temperature'],
+                generation_top_p=generation_config['top_p'],
+                generation_max_output_tokens=generation_config['max_output_tokens'],
                 vector_searcher=vector_searcher,
                 reranker=reranker,
                 credentials=auth_manager.credentials,
-                num_neighbors=vector_search_config.get('num_neighbors')
+                num_neighbors=vector_search_config['num_neighbors']
             )
-            logging.info("Starting chatbot interaction loop.")
-            chatbot.chat_loop()
+            logging.info("Chatbot initialized successfully")
+            
         except Exception as e:
             logging.error(f"Chatbot encountered an error: {e}")
             sys.exit(1)
