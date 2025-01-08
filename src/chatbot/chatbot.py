@@ -164,6 +164,7 @@ class Chatbot:
             <instruction>Cover all relevant aspects in a clear, step-by-step manner.</instruction>
             <instruction>Follow the specified answer format, headings, and style guides.</instruction>
             <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
+            <instruction>Do not enclose the entire response within code blocks. Only use code blocks for specific code snippets or technical examples if necessary.</instruction>
         </instructions>
 
         <context>
@@ -182,14 +183,16 @@ class Chatbot:
             <answer-format>
                 Begin with a brief introduction summarizing the entire answer.
                 Use high-level headings (##) and subheadings (###) to organize content.
-                Present information in bullet points and/or numbered lists to show the hierarchical structure.
-                **Do not** include a heading for the Introduction and Conclusion sections.
-                Include references once after each main heading or section, formatted as *(Reference: [Document Name], page [Page Number(s)])*.
+                Present information in bullet points or numbered lists to show the hierarchical structure.
+                **Use the document names and page numbers from the context for references, formatted as:** *(Reference: [Document Name], page [Page Number(s)])*.
+                **Under each high-level heading(##) and its subheadings(###), **do not** include references right after bullet points and numbered lists.**
+                **Only include one combined reference at the end of the major heading(##) on separate, indented lines with a smaller font.**
             </answer-format>
             <markdown-guidelines>
                 <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
                 <markdown-guideline>Use bullet points ( - or * ) for sub-steps and indent consistently.</markdown-guideline>
                 <markdown-guideline>Use **bold** for emphasis and *italics* for subtle highlights.</markdown-guideline>
+                <markdown-guideline>For references, use HTML `<small>` tags to reduce font size and indent them using spaces.</markdown-guideline>
             </markdown-guidelines>
             <important-notes>
                 <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
@@ -232,6 +235,14 @@ class Chatbot:
                 generation_config=self.generation_config,
             )
             assistant_response = response.text.strip()
+
+            # Remove any wrapping code blocks from the response
+            if assistant_response.startswith("```") and assistant_response.endswith("```"):
+                lines = assistant_response.split("\n")
+                if len(lines) >= 3:
+                    # Remove the first and last lines (```)
+                    assistant_response = "\n".join(lines[1:-1])
+            
             logging.debug("Generated assistant response.")
             return assistant_response
         except Exception as e:

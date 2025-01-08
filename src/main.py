@@ -180,13 +180,13 @@ def main():
     if not skip_preprocessing:
         logging.info("Starting preprocessing stages.")
         # Perform Preprocessing
-        # converter = DocumentConverter(directory_path=config['paths']['documents'])
-        # try:
-        #     converter.convert_docx_to_pdf()
-        #     logging.info("Document conversion completed.")
-        # except Exception as e:
-        #     logging.error(f"Document conversion failed: {e}")
-        #     sys.exit(1)
+        converter = DocumentConverter(directory_path=config['paths']['documents'])
+        try:
+            converter.convert_docx_to_pdf()
+            logging.info("Document conversion completed.")
+        except Exception as e:
+            logging.error(f"Document conversion failed: {e}")
+            sys.exit(1)
 
         # Load PDFs
         loader = PDFLoader(pdf_directory=config['paths']['documents'])
