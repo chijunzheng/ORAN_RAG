@@ -156,11 +156,11 @@ class Chatbot:
 
         prompt_text = f"""
         <purpose>
-            You are an expert in O-RAN systems. Utilize the conversation history and context to provide detailed and accurate answers to the user's queries.
+            You are an expert in O-RAN systems. Utilize the conversation history, context, and if necessary, pre-trained knowledge to provide detailed and accurate answers to the user's queries.
         </purpose>
 
         <instructions>
-            <instruction>Use the context and conversation history to form a concise, thorough response.</instruction>
+            <instruction>Use the context, conversation history, and if necessary, pre-trained knowledge to form a concise, thorough response.</instruction>
             <instruction>Cover all relevant aspects in a clear, step-by-step manner.</instruction>
             <instruction>Follow the specified answer format, headings, and style guides.</instruction>
             <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
@@ -185,7 +185,7 @@ class Chatbot:
                 Use high-level headings (##) and subheadings (###) to organize content.
                 Present information in bullet points or numbered lists to show the hierarchical structure.
                 **Use the document names and page numbers from the context for references, formatted as:** *(Reference: [Document Name], page [Page Number(s)])*.
-                **Under each high-level heading(##) and its subheadings(###), **do not** include references right after bullet points and numbered lists.**
+                **Under each high-level heading(##) and its subheadings(###), **DO NOT** include references right after bullet points( - or *) and numbered lists.**
                 **Only include one combined reference at the end of the major heading(##) on separate, indented lines with a smaller font.**
             </answer-format>
             <markdown-guidelines>
