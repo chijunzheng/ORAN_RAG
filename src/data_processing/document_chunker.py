@@ -40,8 +40,8 @@ class DocumentChunker:
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             separators=separators,
-            length_function=lambda text: len(text)  # Character count
-            #length_function=lambda text: len(text.split())  # Word count
+            #length_function=lambda text: len(text)  # Character count
+            length_function=lambda text: len(text.split())  # Word count
         )
         self.gcs_bucket_name = gcs_bucket_name
         self.gcs_embeddings_path = gcs_embeddings_path

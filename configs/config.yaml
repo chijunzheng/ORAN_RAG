@@ -54,7 +54,7 @@ logging:
   log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/log/oran_rag.log"  # User-defined path for log files
 
 evaluation:
-  num_questions: 100
+  num_questions: 3243
   excel_file_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Evaluation/evaluation_results.xlsx"
   max_workers: 1
   plot_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Evaluation/accuracy_plots.png"
