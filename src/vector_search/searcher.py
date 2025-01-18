@@ -9,7 +9,6 @@ from src.utils.helpers import ensure_directory
 from src.vector_search.indexer import VectorIndexer
 from vertexai.preview.language_models import TextEmbeddingModel, TextEmbeddingInput
 
-
 class VectorSearcher:
     def __init__(self, 
                  project_id: str,
@@ -195,6 +194,40 @@ class VectorSearcher:
         except Exception as e:
             logging.error(f"Error processing search results: {e}", exc_info=True)
             raise
+
+    def vector_search_batch(
+        self,
+        index_endpoint_display_name: str,
+        deployed_index_id: str,
+        query_texts: List[str],
+        num_neighbors: int = 5
+    ) -> List[Dict]:
+        """
+        Performs vector searches for multiple queries and aggregates the results.
+
+        Args:
+            index_endpoint_display_name (str): Display name of the index endpoint.
+            deployed_index_id (str): ID of the deployed index.
+            query_texts (List[str]): List of user query texts.
+            num_neighbors (int, optional): Number of nearest neighbors per query. Defaults to 5.
+
+        Returns:
+            List[Dict]: Aggregated list of retrieved chunks with metadata.
+        """
+        all_retrieved_chunks = []
+        for idx, query_text in enumerate(query_texts):
+            try:
+                retrieved_chunks = self.vector_search(
+                    index_endpoint_display_name=index_endpoint_display_name,
+                    deployed_index_id=deployed_index_id,
+                    query_text=query_text,
+                    num_neighbors=num_neighbors
+                )
+                logging.info(f"Retrieved {len(retrieved_chunks)} chunks for query {idx + 1}: '{query_text}'")
+                all_retrieved_chunks.extend(retrieved_chunks)
+            except Exception as e:
+                logging.error(f"Error during vector search for query '{query_text}': {e}", exc_info=True)
+        return all_retrieved_chunks
 
     def get_index_endpoint_resource_name(self, display_name: str) -> str:
         """

@@ -132,6 +132,55 @@ class Chatbot:
             logging.error(f"Failed to load conversation history: {e}", exc_info=True)
             raise
 
+    def generate_similar_queries(self, original_query: str, num_similar: int = 3) -> List[str]:
+        """
+        Generates similar queries to the original user query using the generative LLM.
+        
+        Args:
+            original_query (str): The original user query.
+            num_similar (int, optional): Number of similar queries to generate. Defaults to 3.
+        
+        Returns:
+            List[str]: List of similar queries.
+        """
+        prompt_text = f"""
+        Generate {num_similar} unique queries that address the same underlying intent as the following question but explore different aspects or use varied terminology. Ensure that each query focuses on a distinct facet of the topic to maximize the diversity of information retrieved.
+
+        Original Query: "{original_query}"
+
+        Similar Queries:
+        1.
+        2.
+        3.
+        """
+
+        prompt_content = Content(
+            role="user",
+            parts=[
+                Part.from_text(prompt_text)
+            ]
+        )
+
+        try:
+            response = self.generative_model.generate_content(
+                prompt_content,
+                generation_config=self.generation_config,
+            )
+            similar_queries_text = response.text.strip()
+            # Extract the queries from the response
+            similar_queries = []
+            for line in similar_queries_text.split('\n'):
+                if line.strip().startswith(tuple(str(i) + '.' for i in range(1, num_similar + 1))):
+                    query = line.split('.', 1)[1].strip()
+                    if query:
+                        similar_queries.append(query)
+            logging.debug(f"Generated similar queries: {similar_queries}")
+            return similar_queries
+        except Exception as e:
+            logging.error(f"Error generating similar queries: {e}", exc_info=True)
+            # Fallback: Return the original query if generation fails
+            return [original_query]
+
     def generate_prompt_content(self, query: str, chunks: List[Dict], conversation_history: List[Dict]) -> Content:
         """
         Generates the prompt content for the LLM.
@@ -261,23 +310,32 @@ class Chatbot:
             str: The chatbot's response.
         """
         try:
-            # 1. Retrieve relevant chunks using vector search
-            retrieved_chunks = self.vector_searcher.vector_search(
-                index_endpoint_display_name=self.index_endpoint_display_name,
-                deployed_index_id=self.deployed_index_id,
-                query_text=user_query,
-                num_neighbors=self.num_neighbors
-            )
-            logging.info(f"Retrieved {len(retrieved_chunks)} chunks for the query.")
+            # 1. Generate similar queries
+            similar_queries = self.generate_similar_queries(user_query, num_similar=3)
+            logging.info(f"Generated similar queries: {similar_queries}")
 
-            if not retrieved_chunks:
-                logging.warning("No chunks retrieved for the query.")
+            # 2. Perform vector search for each similar query
+            all_retrieved_chunks = []
+            for idx, query in enumerate(similar_queries):
+                retrieved_chunks = self.vector_searcher.vector_search(
+                    index_endpoint_display_name=self.index_endpoint_display_name,
+                    deployed_index_id=self.deployed_index_id,
+                    query_text=query,
+                    num_neighbors=30  # 30 chunks per similar query
+                )
+                logging.info(f"Retrieved {len(retrieved_chunks)} chunks for similar query {idx + 1}: '{query}'")
+                all_retrieved_chunks.extend(retrieved_chunks)
+
+            logging.info(f"Total retrieved chunks from similar queries: {len(all_retrieved_chunks)}")
+
+            if not all_retrieved_chunks:
+                logging.warning("No chunks retrieved for the similar queries.")
                 return "I'm sorry, I couldn't find relevant information to answer your question."
 
-            # 2. Rerank the retrieved chunks
+            # 3. Rerank the retrieved chunks
             reranked_chunks = self.reranker.rerank(
                 query=user_query,
-                records=retrieved_chunks
+                records=all_retrieved_chunks
             )
             logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
 
@@ -285,14 +343,14 @@ class Chatbot:
                 logging.warning("Reranking returned no results.")
                 return "I'm sorry, I couldn't find relevant information after reranking."
 
-            # 3. Generate prompt with reranked chunks and conversation history
+            # 4. Generate prompt with reranked chunks and conversation history
             prompt_content = self.generate_prompt_content(
                 query=user_query,
                 chunks=reranked_chunks,
                 conversation_history=conversation_history
             )
 
-            # 4. Generate response from the model
+            # 5. Generate response from the model
             assistant_response = self.generate_response(prompt_content)
 
             return assistant_response.strip() if assistant_response else "I'm sorry, I couldn't generate a response."

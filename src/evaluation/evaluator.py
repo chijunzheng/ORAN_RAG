@@ -10,7 +10,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Tuple
 from google.cloud import storage
 from openpyxl import Workbook
-import threading
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from vertexai.generative_models import GenerativeModel, GenerationConfig
@@ -49,8 +48,13 @@ class Evaluator:
             bucket_name (str): GCS bucket name.
             embeddings_path (str): Path within the bucket where embeddings are stored.
             qna_dataset_path (str): Path to the Q&A dataset in GCS.
+            index_endpoint_display_name (str): Display name of the index endpoint.
+            deployed_index_id (str): ID of the deployed index.
             generation_config (Dict): Configuration for text generation parameters.
             vector_searcher (VectorSearcher): Instance of VectorSearcher for performing vector searches.
+            credentials: Google Cloud credentials object.
+            num_neighbors (int): Number of neighbors to retrieve per similar query.
+            reranker (Reranker): Instance of Reranker for reranking results.
         """
         self.project_id = project_id
         self.location = location
@@ -58,19 +62,18 @@ class Evaluator:
         self.embeddings_path = embeddings_path
         self.qna_dataset_path = qna_dataset_path
         self.vector_searcher = vector_searcher  
-        self.generative_model = GenerativeModel("gemini-1.5-flash-002")
         self.generation_config = GenerationConfig(
             temperature=generation_config.get('temperature', 0.7),
             top_p=generation_config.get('top_p', 0.9),
             max_output_tokens=generation_config.get('max_output_tokens', 1000),
         )
+        self.generative_model = GenerativeModel("gemini-1.5-flash-002")
         self.storage_client = storage.Client(project=self.project_id, credentials=credentials)
         self.bucket = self.storage_client.bucket(self.bucket_name)
         self.num_neighbors = num_neighbors
         self.index_endpoint_display_name = index_endpoint_display_name
         self.deployed_index_id = deployed_index_id
         self.reranker = reranker
-
 
         logging.info("Evaluator initialized successfully.")
 
@@ -240,13 +243,10 @@ class Evaluator:
         context = "\n\n".join([f"Chunk {i+1}:\n{chunk['content']}" for i, chunk in enumerate(chunks)])
         choices_text = "\n".join(choices)
         prompt_text = f"""
-        You are an expert in O-RAN systems. Utilize the context to provide detailed and accurate answers to the user's queries.
+        You are an expert in O-RAN systems. Utilize the context to provide the correct and logical answer choice to the user's queries.
 
         Instruction:
-        Using the information provided in the context, please provide a logical and concise answer to the question below.
-
-        If the question presents multiple choice options, you must:
-        - State the correct choice by its number (e.g., "The correct answer is: 3") at the start of your answer.
+        Please provide the correct answer choice number (1, 2, 3, or 4) only.
 
         Context:
         {context}
@@ -257,7 +257,6 @@ class Evaluator:
         Choices:
         {choices_text}
 
-        Please provide the correct answer choice number (1, 2, 3, or 4) only.
 
         Answer:
         """
@@ -279,85 +278,85 @@ class Evaluator:
             str: The model's answer.
         """
         try:
-            # Step 1: Vector Search
-            retrieved_chunks = self.vector_searcher.vector_search(
-                index_endpoint_display_name=self.index_endpoint_display_name,
-                deployed_index_id=self.deployed_index_id,
-                query_text=question,
-                num_neighbors=self.num_neighbors,
-            )
+            # Step 1: Generate Similar Queries
+            similar_queries = self.generate_similar_queries(question, num_similar=3)
+            logging.info(f"Generated {len(similar_queries)} similar queries for evaluation.")
 
-            if not retrieved_chunks:
-                logging.warning("No chunks retrieved for the query.")
+            # Step 2: Perform Vector Search for Each Similar Query
+            all_retrieved_chunks = []
+            for idx, sim_query in enumerate(similar_queries):
+                retrieved_chunks = self.vector_searcher.vector_search(
+                    index_endpoint_display_name=self.index_endpoint_display_name,
+                    deployed_index_id=self.deployed_index_id,
+                    query_text=sim_query,
+                    num_neighbors=30  # 30 chunks per similar query
+                )
+                logging.info(f"Retrieved {len(retrieved_chunks)} chunks for similar query {idx + 1}: '{sim_query}'")
+                all_retrieved_chunks.extend(retrieved_chunks)
+
+            logging.info(f"Total retrieved chunks from all similar queries: {len(all_retrieved_chunks)}")
+
+            if not all_retrieved_chunks:
+                logging.warning("No chunks retrieved for any similar queries.")
                 return "No relevant information found."
 
-            # Step 2: Reranking
+            # Step 3: Rerank the Retrieved Chunks
             reranked_chunks = self.reranker.rerank(
                 query=question,
-                records=retrieved_chunks,
+                records=all_retrieved_chunks
             )
-            logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
-            
+            logging.info(f"Reranked to top {len(reranked_chunks)} chunks.")
+
             if not reranked_chunks:
                 logging.warning("Reranking returned no results.")
                 return "No relevant information found after reranking."
 
-            # Step 3: Generate Prompt with Reranked Chunks
+            # Step 4: Generate Prompt with Reranked Chunks
             prompt_content = self.generate_prompt_content_evaluation(question, choices, reranked_chunks)
 
-            # Step 4: Generate Response from RAG Pipeline
+            # Step 5: Generate Response from RAG Pipeline
             assistant_response = self.safe_generate_content(prompt_content)
+
             return assistant_response.strip() if assistant_response else "Error"
 
         except Exception as e:
             logging.error(f"Error in RAG pipeline for question '{question}': {e}", exc_info=True)
             return "Error"
 
-    def evaluate_single_entry(self, entry: List[str], delay: float = 0.5) -> Dict:
+    def generate_similar_queries(self, original_query: str, num_similar: int = 3) -> List[str]:
         """
-        Evaluates a single Q&A entry using both RAG and Gemini LLM.
+        Generates similar queries to the original question using the Gemini LLM.
 
         Args:
-            entry (List[str]): [question, choices, correct_answer]
-            delay (float, optional): Delay between requests. Defaults to 0.5.
+            original_query (str): The original question.
+            num_similar (int, optional): Number of similar queries to generate. Defaults to 3.
 
         Returns:
-            Dict: Evaluation results.
+            List[str]: List of similar queries.
         """
-        try:
-            time.sleep(delay)
-            question, choices, correct_str = entry
-            correct_choice = correct_str.strip()
+        prompt_text = f"""
+        Generate {num_similar} queries that are similar in intent and meaning to the following question. Ensure diversity in phrasing and structure.
 
-            # Query RAG
-            rag_full_answer = self.query_rag_pipeline(question, choices)
-            rag_pred_choice = self.extract_choice_from_answer(rag_full_answer)
-            rag_correct = rag_pred_choice == correct_choice
+        Original Query: "{original_query}"
 
-            # Query Gemini
-            gemini_full_answer = self.query_gemini_llm(question, choices)
-            gemini_pred_choice = self.extract_choice_from_answer(gemini_full_answer)
-            gemini_correct = gemini_pred_choice == correct_choice
-
-            return {
-                'Question': question,
-                'Correct Answer': correct_choice,
-                'RAG Predicted Answer': rag_full_answer,
-                'RAG Correct': rag_correct,
-                'Gemini Predicted Answer': gemini_full_answer,
-                'Gemini Correct': gemini_correct
-            }
-
-        except Exception as e:
-            logging.error(f"Error processing entry: {e}", exc_info=True)
-            return {
-                'Question': entry[0],
-                'Correct Answer': entry[2].strip(),
-                'RAG Predicted Answer': "Error",
-                'RAG Correct': False,
-                'Gemini Predicted Answer': "Error",
-                'Gemini Correct': False,
-            }
+        Similar Queries:
+        1.
+        2.
+        3.
+        """
+        user_prompt = Content(
+            role="user",
+            parts=[Part.from_text(prompt_text)]
+        )
+        similar_queries_text = self.safe_generate_content(user_prompt)
+        similar_queries = []
+        for line in similar_queries_text.split('\n'):
+            if line.strip().startswith(tuple(str(i) + '.' for i in range(1, num_similar + 1))):
+                query = line.split('.', 1)[1].strip()
+                if query:
+                    similar_queries.append(query)
+        logging.debug(f"Generated similar queries: {similar_queries}")
+        return similar_queries
 
     def evaluate_models_parallel(
         self,
@@ -367,124 +366,180 @@ class Evaluator:
         max_workers: int = 1
     ) -> Tuple[float, float]:
         """
-        Evaluates models in parallel and records results in an Excel file.
+        Evaluates both the RAG pipeline and the raw Gemini LLM on the Q&A dataset.
 
         Args:
-            qna_dataset (List[List[str]]): List of Q&A entries.
+            qna_dataset (List[List[str]]): List of Q&A entries as [question, choices, correct_answer].
             num_questions (int): Number of questions to evaluate.
-            excel_file_path (str): Path to save the Excel results.
-            max_workers (int, optional): Number of parallel threads. Defaults to 1.
+            excel_file_path (str): Path to save the evaluation results Excel file.
+            max_workers (int, optional): Maximum number of worker threads. Defaults to 1.
 
         Returns:
-            Tuple[float, float]: RAG and Gemini accuracies.
+            Tuple[float, float]: RAG pipeline accuracy and Gemini LLM accuracy.
         """
-        qna_subset = qna_dataset[:num_questions]
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Evaluation Results"
-        headers = [
-            'Question',
-            'Correct Answer',
-            'RAG Predicted Answer',
-            'RAG Correct',
-            'Gemini Predicted Answer',
-            'Gemini Correct',
-        ]
-        ws.append(headers)
-        wb.save(excel_file_path)
-        logging.info(f"Excel file created at {excel_file_path}")
-
-        rag_correct = 0
-        gemini_correct = 0
-        processed = 0
-
-        excel_lock = threading.Lock()
-        rows_buffer = []
-        buffer_size = 100
-
-        def flush_rows_buffer():
-            if not rows_buffer:
-                return
-            with excel_lock:
-                for row in rows_buffer:
-                    ws.append(row)
-                wb.save(excel_file_path)
-            rows_buffer.clear()
+        selected_qna = random.sample(qna_dataset, min(num_questions, len(qna_dataset)))
+        results = []
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(self.evaluate_single_entry, entry): idx
-                for idx, entry in enumerate(qna_subset, 1)
+            future_to_qna = {
+                executor.submit(self.evaluate_single_question, qna): qna for qna in selected_qna
             }
-            for future in tqdm(
-                as_completed(futures),
-                total=len(futures),
-                desc="Evaluating Q&A Entries"
-            ):
-                idx = futures[future]
+
+            for future in tqdm(as_completed(future_to_qna), total=len(future_to_qna), desc="Evaluating Q&A"):
+                qna = future_to_qna[future]
                 try:
-                    result = future.result()
+                    rag_correct, gemini_correct = future.result()
+                    results.append({
+                        'Question': qna[0],
+                        'Choices': qna[1],
+                        'Correct Answer': qna[2],
+                        'RAG Answer Correct': rag_correct,
+                        'Gemini Answer Correct': gemini_correct
+                    })
+                except Exception as e:
+                    logging.error(f"Error evaluating question '{qna[0]}': {e}", exc_info=True)
 
-                    if result.get('RAG Correct'):
-                        rag_correct += 1
-                    if result.get('Gemini Correct'):
-                        gemini_correct += 1
+        # Save results to Excel
+        self.save_results_to_excel(results, excel_file_path)
 
-                    processed += 1
-                    row = [
-                        result.get('Question', ''),
-                        result.get('Correct Answer', ''),
-                        result.get('RAG Predicted Answer', ''),
-                        result.get('RAG Correct', False),
-                        result.get('Gemini Predicted Answer', ''),
-                        result.get('Gemini Correct', False),
-                    ]
-                    rows_buffer.append(row)
-
-                    if len(rows_buffer) >= buffer_size:
-                        flush_rows_buffer()
-
-                except Exception as exc:
-                    logging.error(f"Exception for question {idx}: {exc}")
-
-        flush_rows_buffer()
-        wb.close()
-
-        rag_accuracy = (rag_correct / processed) * 100.0 if processed > 0 else 0
-        gemini_accuracy = (gemini_correct / processed) * 100.0 if processed > 0 else 0
-
-        logging.info(f"RAG Accuracy: {rag_accuracy:.2f}%")
-        logging.info(f"Gemini Accuracy: {gemini_accuracy:.2f}%")
+        # Calculate accuracies
+        rag_accuracy = (sum(1 for r in results if r['RAG Answer Correct']) / len(results)) * 100 if results else 0
+        gemini_accuracy = (sum(1 for r in results if r['Gemini Answer Correct']) / len(results)) * 100 if results else 0
 
         return rag_accuracy, gemini_accuracy
-    
 
-
-    def visualize_accuracies(self, rag_acc: float, gemini_acc: float, save_path: str = None):
+    def evaluate_single_question(self, qna: List[str]) -> Tuple[bool, bool]:
         """
-        Visualizes the accuracy comparison between RAG Pipeline and Gemini LLM.
+        Evaluates a single Q&A entry for both RAG and Gemini models.
 
         Args:
-            rag_acc (float): Accuracy of the RAG Pipeline.
-            gemini_acc (float): Accuracy of the Gemini LLM.
-            save_path (str, optional): Path to save the plot image. If None, the plot is displayed.
+            qna (List[str]): A Q&A entry as [question, choices, correct_answer].
+
+        Returns:
+            Tuple[bool, bool]: RAG pipeline correctness and Gemini LLM correctness.
         """
-        models = ['RAG Pipeline', 'Raw Gemini LLM']
-        accuracies = [rag_acc, gemini_acc]
+        question, choices, correct_answer = qna
 
-        plt.figure(figsize=(8,6))
-        bars = plt.bar(models, accuracies, color=['blue', 'green'])
-        plt.xlabel('Models')
-        plt.ylabel('Accuracy (%)')
-        plt.title('Model Accuracy Comparison')
-        plt.ylim(0, 100)
+        # Evaluate RAG Pipeline
+        rag_response = self.query_rag_pipeline(question, choices)
+        rag_choice = self.extract_choice_from_answer(rag_response)
+        rag_correct = (rag_choice == correct_answer)
 
-        for bar in bars:
-            height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2.0, height, f'{height:.2f}%', ha='center', va='bottom')
+        # Evaluate Gemini LLM
+        gemini_response = self.query_gemini_llm(question, choices)
+        gemini_choice = self.extract_choice_from_answer(gemini_response)
+        gemini_correct = (gemini_choice == correct_answer)
 
-        if save_path:
-            plt.savefig(save_path)
-            logging.info(f"Accuracy comparison plot saved to {save_path}")
-        else:
+        return rag_correct, gemini_correct
+
+    def save_results_to_excel(self, results: List[Dict], excel_file_path: str):
+        """
+        Saves the evaluation results to an Excel file.
+
+        Args:
+            results (List[Dict]): List of evaluation results.
+            excel_file_path (str): Path to save the Excel file.
+        """
+        try:
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Evaluation Results"
+
+            # Write headers
+            headers = ['Question', 'Choices', 'Correct Answer', 'RAG Answer Correct', 'Gemini Answer Correct']
+            ws.append(headers)
+
+            # Write data rows
+            for result in results:
+                ws.append([
+                    result['Question'],
+                    "\n".join(result['Choices']),
+                    result['Correct Answer'],
+                    "Yes" if result['RAG Answer Correct'] else "No",
+                    "Yes" if result['Gemini Answer Correct'] else "No"
+                ])
+
+            wb.save(excel_file_path)
+            logging.info(f"Saved evaluation results to Excel at {excel_file_path}")
+        except Exception as e:
+            logging.error(f"Failed to save results to Excel: {e}", exc_info=True)
+            raise
+
+    def visualize_accuracies(self, rag_accuracy: float, gemini_accuracy: float, save_path: str = None):
+        """
+        Visualizes the accuracies of both models using a bar chart.
+
+        Args:
+            rag_accuracy (float): RAG pipeline accuracy percentage.
+            gemini_accuracy (float): Gemini LLM accuracy percentage.
+            save_path (str): Path to save the plot image. Defaults to None.
+        """
+        try:
+            models = ['RAG Pipeline', 'Gemini LLM']
+            accuracies = [rag_accuracy, gemini_accuracy]
+
+            plt.figure(figsize=(8, 6))
+            bars = plt.bar(models, accuracies, color=['#1a73e8', '#34a853'])
+            plt.ylim(0, 100)
+            plt.ylabel('Accuracy (%)')
+            plt.title('Model Accuracies')
+
+            # Attach accuracy labels on top of bars
+            for bar in bars:
+                height = bar.get_height()
+                plt.annotate(f'{height:.2f}%',
+                             xy=(bar.get_x() + bar.get_width() / 2, height),
+                             xytext=(0, 3),  # 3 points vertical offset
+                             textcoords="offset points",
+                             ha='center', va='bottom')
+
+            plt.tight_layout()
+            if save_path:
+                plt.savefig(save_path)
+                logging.info(f"Saved accuracy plot to {save_path}")
             plt.show()
+        except Exception as e:
+            logging.error(f"Failed to visualize accuracies: {e}", exc_info=True)
+            raise
+
+    def evaluate_models_sequential(
+        self,
+        qna_dataset: List[List[str]],
+        num_questions: int,
+        excel_file_path: str
+    ) -> Tuple[float, float]:
+        """
+        Sequentially evaluates both the RAG pipeline and the raw Gemini LLM on the Q&A dataset.
+
+        Args:
+            qna_dataset (List[List[str]]): List of Q&A entries as [question, choices, correct_answer].
+            num_questions (int): Number of questions to evaluate.
+            excel_file_path (str): Path to save the evaluation results Excel file.
+
+        Returns:
+            Tuple[float, float]: RAG pipeline accuracy and Gemini LLM accuracy.
+        """
+        selected_qna = random.sample(qna_dataset, min(num_questions, len(qna_dataset)))
+        results = []
+
+        for qna in tqdm(selected_qna, desc="Evaluating Q&A"):
+            try:
+                rag_correct, gemini_correct = self.evaluate_single_question(qna)
+                results.append({
+                    'Question': qna[0],
+                    'Choices': qna[1],
+                    'Correct Answer': qna[2],
+                    'RAG Answer Correct': rag_correct,
+                    'Gemini Answer Correct': gemini_correct
+                })
+            except Exception as e:
+                logging.error(f"Error evaluating question '{qna[0]}': {e}", exc_info=True)
+
+        # Save results to Excel
+        self.save_results_to_excel(results, excel_file_path)
+
+        # Calculate accuracies
+        rag_accuracy = (sum(1 for r in results if r['RAG Answer Correct']) / len(results)) * 100 if results else 0
+        gemini_accuracy = (sum(1 for r in results if r['Gemini Answer Correct']) / len(results)) * 100 if results else 0
+
+        return rag_accuracy, gemini_accuracy
