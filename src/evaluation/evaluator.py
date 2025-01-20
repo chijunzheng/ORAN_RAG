@@ -282,9 +282,13 @@ class Evaluator:
             similar_queries = self.generate_similar_queries(question, num_similar=3)
             logging.info(f"Generated {len(similar_queries)} similar queries for evaluation.")
 
-            # Step 2: Perform Vector Search for Each Similar Query
+            # Step 2: Include Original Query with Similar Queries
+            all_queries = [question] + similar_queries  # Original query + similar queries
+            logging.info(f"Including original query along with similar queries for vector search.")
+
+            # Step 3: Perform Vector Search for Each Similar Query
             all_retrieved_chunks = []
-            for idx, sim_query in enumerate(similar_queries):
+            for idx, sim_query in enumerate(all_queries):
                 retrieved_chunks = self.vector_searcher.vector_search(
                     index_endpoint_display_name=self.index_endpoint_display_name,
                     deployed_index_id=self.deployed_index_id,
@@ -335,7 +339,7 @@ class Evaluator:
             List[str]: List of similar queries.
         """
         prompt_text = f"""
-        Generate {num_similar} queries that are similar in intent and meaning to the following question. Ensure diversity in phrasing and structure.
+        Generate {num_similar} unique and diverse queries that address the same underlying intent as the following question but explore different aspects, perspectives, or use varied terminology. Ensure that each query focuses on a distinct facet of the topic to maximize the diversity of information retrieved.
 
         Original Query: "{original_query}"
 

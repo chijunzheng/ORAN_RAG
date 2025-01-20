@@ -144,7 +144,7 @@ class Chatbot:
             List[str]: List of similar queries.
         """
         prompt_text = f"""
-        Generate {num_similar} unique queries that address the same underlying intent as the following question but explore different aspects or use varied terminology. Ensure that each query focuses on a distinct facet of the topic to maximize the diversity of information retrieved.
+        Generate {num_similar} unique and diverse queries that address the same underlying intent as the following question but explore different aspects, perspectives, or use varied terminology. Ensure that each query focuses on a distinct facet of the topic to maximize the diversity of information retrieved.
 
         Original Query: "{original_query}"
 
@@ -230,7 +230,7 @@ class Chatbot:
 
         <sections>
             <answer-format>
-                Begin with a brief introduction summarizing the entire answer.
+                Begin with a brief introduction summarizing the entire answer. Do not use filler words such as "This response ...", "This document...", "This section...". etc.
                 Use high-level headings (##) and subheadings (###) to organize content.
                 Present information in bullet points or numbered lists to show the hierarchical structure.
                 **Use the document names and page numbers from the context for references, formatted as:** *(Reference: [Document Name], page [Page Number(s)])*.
@@ -314,9 +314,13 @@ class Chatbot:
             similar_queries = self.generate_similar_queries(user_query, num_similar=3)
             logging.info(f"Generated similar queries: {similar_queries}")
 
-            # 2. Perform vector search for each similar query
+            # 2. Include original query + similar queries for vector search
+            all_queries = [user_query] + similar_queries
+            logging.info(f"Performing vector search for the original query and {len(similar_queries)} similar queries.")
+            
+            # 3. Perform vector search for each similar query
             all_retrieved_chunks = []
-            for idx, query in enumerate(similar_queries):
+            for idx, query in enumerate(all_queries):
                 retrieved_chunks = self.vector_searcher.vector_search(
                     index_endpoint_display_name=self.index_endpoint_display_name,
                     deployed_index_id=self.deployed_index_id,

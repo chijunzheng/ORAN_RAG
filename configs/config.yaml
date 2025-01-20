@@ -37,7 +37,7 @@ vector_search:
 ranking:
   ranking_config: "default_ranking_config"  
   model: "semantic-ranker-512@latest" 
-  rerank_top_n: 10
+  rerank_top_n: 20
 
 chunking:
   chunk_size: 1536  # Maximum number of characters per chunk
