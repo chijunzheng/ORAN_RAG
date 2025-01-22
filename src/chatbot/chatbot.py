@@ -70,7 +70,7 @@ class Chatbot:
             self.db = firestore.Client(project=self.project_id, credentials=credentials)
             logging.info("Initialized Firestore client.")
 
-            # Initialize Generative Model
+            # Initialize Generative Model (for both hypothetical & final answers)
             self.generative_model = GenerativeModel("gemini-1.5-flash-002")
             logging.info("Initialized GenerativeModel 'gemini-1.5-flash-002'.")
 
@@ -134,7 +134,7 @@ class Chatbot:
 
     def generate_prompt_content(self, query: str, chunks: List[Dict], conversation_history: List[Dict]) -> Content:
         """
-        Generates the prompt content for the LLM.
+        Generates the prompt content for the final generative LLM.
         
         Args:
             query (str): User's query.
@@ -144,11 +144,13 @@ class Chatbot:
         Returns:
             Content: The prompt content object.
         """
+        # Build up to five turns of conversation
         history_text = ""
         for turn in conversation_history[-5:]:
             history_text += f"User: {turn['user']}\nAssistant: {turn['assistant']}\n"
         history_text += f"User: {query}\n"
 
+        # Build context from chunks
         context = "\n\n".join([
             f"Chunk {i+1} ({chunk['document_name']}, Page {chunk['page_number']}):\n{chunk['content']}"
             for i, chunk in enumerate(chunks)
@@ -183,10 +185,17 @@ class Chatbot:
             <answer-format>
                 Begin with a brief introduction summarizing the entire answer.
                 Use high-level headings (##) and subheadings (###) to organize content.
-                Present information in bullet points or numbered lists to show the hierarchical structure.
-                **Use the document names and page numbers from the context for references, formatted as:** *(Reference: [Document Name], page [Page Number(s)])*.
-                **Under each high-level heading(##) and its subheadings(###), **DO NOT** include references right after bullet points( - or *) and numbered lists.**
-                **Only include one combined reference at the end of the major heading(##) on separate, indented lines with a smaller font.**
+                Present information in bullet points or numbered lists to illustrate hierarchy.
+
+                **References Rule**:
+                - **Do NOT** place references after individual bullets or sentences.
+                - **Do NOT** place references inline within paragraphs.
+                - Instead, gather all the references at the **end of the relevant heading** (## or ###) in **one combined block**.
+                - Format references in smaller font, using HTML `<small>` tags and indentation. For example:
+                <small>
+                    &nbsp;&nbsp;*(Reference: [Document Name], page [Page Number(s)])*
+                    &nbsp;&nbsp;*(Reference: [Another Document], page [Page Number(s)])*
+                </small>
             </answer-format>
             <markdown-guidelines>
                 <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
@@ -213,15 +222,13 @@ class Chatbot:
         """
         user_prompt_content = Content(
             role="user",
-            parts=[
-                Part.from_text(prompt_text)
-            ]
+            parts=[Part.from_text(prompt_text)]
         )
         return user_prompt_content
 
     def generate_response(self, prompt_content: Content) -> str:
         """
-        Generates a response from the generative model.
+        Generates a response from the generative model (final answer).
         
         Args:
             prompt_content (Content): The prompt content object.
@@ -236,11 +243,10 @@ class Chatbot:
             )
             assistant_response = response.text.strip()
 
-            # Remove any wrapping code blocks from the response
+            # Remove any wrapping code blocks if present
             if assistant_response.startswith("```") and assistant_response.endswith("```"):
                 lines = assistant_response.split("\n")
                 if len(lines) >= 3:
-                    # Remove the first and last lines (```)
                     assistant_response = "\n".join(lines[1:-1])
             
             logging.debug("Generated assistant response.")
@@ -249,54 +255,104 @@ class Chatbot:
             logging.error(f"Error generating response: {e}", exc_info=True)
             return "I'm sorry, I encountered an error while processing your request."
 
+    def generate_hypothetical_answer(self, user_query: str) -> str:
+        """
+        Generates a hypothetical short answer for the user query using the LLM.
+        This hypothetical answer is used to improve retrieval performance (HyDE).
+        
+        Args:
+            user_query (str): The user's query.
+        
+        Returns:
+            str: A hypothetical answer text.
+        """
+        try:
+            # Simple prompt to produce a concise hypothetical answer
+            prompt_text = f"Provide a concise hypothetical answer for the query:\n\n{user_query}\n\nAnswer:"
+            prompt_content = Content(
+                role="user",
+                parts=[Part.from_text(prompt_text)]
+            )
+
+            response = self.generative_model.generate_content(
+                prompt_content,
+                generation_config=self.generation_config,
+            )
+            hypothetical = response.text.strip()
+            logging.debug(f"Hypothetical answer generated: {hypothetical}")
+            return hypothetical
+        except Exception as e:
+            logging.error(f"Error generating hypothetical answer: {e}", exc_info=True)
+            return ""
+
     def get_response(self, user_query: str, conversation_history: List[Dict]) -> str:
         """
-        Processes the user query along with conversation history and returns the chatbot response.
+        Implements the HyDE approach to retrieve top-ranked chunks and generate a final answer:
+        
+        1) Generate a hypothetical answer from the query using the LLM.
+        2) Perform vector search for the original query (top 30).
+        3) Perform vector search for the hypothetical answer (top 30).
+        4) Combine and rerank the total retrieved chunks to top 20.
+        5) Generate a final answer using the retrieved + reranked chunks.
         
         Args:
             user_query (str): The user's query.
             conversation_history (List[Dict]): List of previous conversation turns.
         
         Returns:
-            str: The chatbot's response.
+            str: The chatbot's final answer.
         """
         try:
-            # 1. Retrieve relevant chunks using vector search
-            retrieved_chunks = self.vector_searcher.vector_search(
+            # Step 1: Generate Hypothetical Answer
+            hypothetical_answer = self.generate_hypothetical_answer(user_query)
+
+            # Step 2: Retrieve 30 chunks using original query
+            retrieved_chunks_query = self.vector_searcher.vector_search(
                 index_endpoint_display_name=self.index_endpoint_display_name,
                 deployed_index_id=self.deployed_index_id,
                 query_text=user_query,
-                num_neighbors=self.num_neighbors
+                num_neighbors=30
             )
-            logging.info(f"Retrieved {len(retrieved_chunks)} chunks for the query.")
+            logging.info(f"Retrieved {len(retrieved_chunks_query)} chunks for the original query.")
 
-            if not retrieved_chunks:
-                logging.warning("No chunks retrieved for the query.")
+            # Step 3: Retrieve 30 chunks using hypothetical answer
+            retrieved_chunks_hypo = []
+            if hypothetical_answer:
+                retrieved_chunks_hypo = self.vector_searcher.vector_search(
+                    index_endpoint_display_name=self.index_endpoint_display_name,
+                    deployed_index_id=self.deployed_index_id,
+                    query_text=hypothetical_answer,
+                    num_neighbors=30
+                )
+            logging.info(f"Retrieved {len(retrieved_chunks_hypo)} chunks for the hypothetical answer.")
+
+            # Combine both sets of chunks
+            combined_chunks = retrieved_chunks_query + retrieved_chunks_hypo
+            if not combined_chunks:
+                logging.warning("No relevant chunks found (query + hypothetical).")
                 return "I'm sorry, I couldn't find relevant information to answer your question."
 
-            # 2. Rerank the retrieved chunks
+            # Step 4: Rerank to produce top 20
             reranked_chunks = self.reranker.rerank(
-                query=user_query,
-                records=retrieved_chunks
+                query=user_query,       # We keep the user query as the main anchor
+                records=combined_chunks
             )
-            logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
+            top_20_chunks = reranked_chunks[:20]
+            logging.info(f"Reranked to {len(top_20_chunks)} top chunks using HyDE approach.")
 
-            if not reranked_chunks:
+            if not top_20_chunks:
                 logging.warning("Reranking returned no results.")
                 return "I'm sorry, I couldn't find relevant information after reranking."
 
-            # 3. Generate prompt with reranked chunks and conversation history
+            # Step 5: Generate final response from the top 20 chunks
             prompt_content = self.generate_prompt_content(
                 query=user_query,
-                chunks=reranked_chunks,
+                chunks=top_20_chunks,
                 conversation_history=conversation_history
             )
-
-            # 4. Generate response from the model
             assistant_response = self.generate_response(prompt_content)
-
             return assistant_response.strip() if assistant_response else "I'm sorry, I couldn't generate a response."
 
         except Exception as e:
-            logging.error(f"Error in get_response: {e}", exc_info=True)
+            logging.error(f"Error in get_response (HyDE pipeline): {e}", exc_info=True)
             return "I'm sorry, an error occurred while processing your request."

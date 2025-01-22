@@ -13,14 +13,10 @@ from openpyxl import Workbook
 import threading
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from vertexai.generative_models import GenerativeModel, GenerationConfig
+
+from vertexai.generative_models import GenerativeModel, GenerationConfig, Content, Part
 from vertexai.preview.language_models import TextEmbeddingModel, TextEmbeddingInput
-from vertexai.generative_models import (
-    GenerativeModel,
-    GenerationConfig,
-    Content,
-    Part
-)
+
 from src.vector_search.searcher import VectorSearcher
 from src.vector_search.reranker import Reranker
 
@@ -42,45 +38,34 @@ class Evaluator:
     ):
         """
         Initializes the Evaluator with necessary configurations.
-
-        Args:
-            project_id (str): Google Cloud project ID.
-            location (str): Google Cloud region.
-            bucket_name (str): GCS bucket name.
-            embeddings_path (str): Path within the bucket where embeddings are stored.
-            qna_dataset_path (str): Path to the Q&A dataset in GCS.
-            generation_config (Dict): Configuration for text generation parameters.
-            vector_searcher (VectorSearcher): Instance of VectorSearcher for performing vector searches.
         """
         self.project_id = project_id
         self.location = location
         self.bucket_name = bucket_name
         self.embeddings_path = embeddings_path
         self.qna_dataset_path = qna_dataset_path
-        self.vector_searcher = vector_searcher  
+        self.index_endpoint_display_name = index_endpoint_display_name
+        self.deployed_index_id = deployed_index_id
+        self.vector_searcher = vector_searcher
+        self.reranker = reranker
+        self.num_neighbors = num_neighbors
+
+        # Initialize the generative model (for both hypothetical and final answers)
         self.generative_model = GenerativeModel("gemini-1.5-flash-002")
         self.generation_config = GenerationConfig(
             temperature=generation_config.get('temperature', 0.7),
             top_p=generation_config.get('top_p', 0.9),
             max_output_tokens=generation_config.get('max_output_tokens', 1000),
         )
+
         self.storage_client = storage.Client(project=self.project_id, credentials=credentials)
         self.bucket = self.storage_client.bucket(self.bucket_name)
-        self.num_neighbors = num_neighbors
-        self.index_endpoint_display_name = index_endpoint_display_name
-        self.deployed_index_id = deployed_index_id
-        self.reranker = reranker
-
 
         logging.info("Evaluator initialized successfully.")
 
     def upload_qna_dataset_to_gcs(self, local_file_path: str, gcs_file_name: str):
         """
         Uploads the Q&A dataset to GCS.
-
-        Args:
-            local_file_path (str): Local path of the Q&A dataset.
-            gcs_file_name (str): Desired GCS path for the dataset.
         """
         try:
             blob = self.bucket.blob(gcs_file_name)
@@ -93,9 +78,6 @@ class Evaluator:
     def load_qna_dataset_from_gcs(self) -> List[List[str]]:
         """
         Loads the Q&A dataset from GCS.
-
-        Returns:
-            List[List[str]]: List of Q&A entries as [question, choices, correct_answer].
         """
         try:
             blob = self.bucket.blob(self.qna_dataset_path)
@@ -108,9 +90,8 @@ class Evaluator:
                     continue
                 try:
                     qna_entry = json.loads(line)
-                    if isinstance(qna_entry, list) and len(qna_entry) == 3:
-                        qna_dataset.append(qna_entry)
-                    elif isinstance(qna_entry, dict):
+                    # You can adjust your dataset parsing as needed:
+                    if isinstance(qna_entry, dict):
                         question = qna_entry.get("question")
                         choices = qna_entry.get("choices")
                         correct_answer = qna_entry.get("answer")
@@ -118,6 +99,8 @@ class Evaluator:
                             qna_dataset.append([question, choices, correct_answer])
                         else:
                             logging.warning(f"Line {line_number}: Missing fields.")
+                    elif isinstance(qna_entry, list) and len(qna_entry) == 3:
+                        qna_dataset.append(qna_entry)
                     else:
                         logging.warning(f"Line {line_number}: Unexpected format.")
                 except json.JSONDecodeError as e:
@@ -137,15 +120,6 @@ class Evaluator:
     ) -> str:
         """
         Generates content with exponential backoff and jitter.
-
-        Args:
-            content (Content): Content object for the generative model.
-            retries (int, optional): Number of retry attempts. Defaults to 10.
-            backoff_factor (int, optional): Backoff multiplier. Defaults to 2.
-            max_wait (int, optional): Maximum wait time. Defaults to 30.
-
-        Returns:
-            str: Generated text or "Error" upon failure.
         """
         wait_time = 1
         for attempt in range(1, retries + 1):
@@ -171,13 +145,7 @@ class Evaluator:
 
     def extract_choice_from_answer(self, answer_text: str) -> str:
         """
-        Extracts the choice number from the model's answer.
-
-        Args:
-            answer_text (str): The model's response.
-
-        Returns:
-            str: Extracted choice number or None.
+        Extracts the choice number from the model's answer (1, 2, 3, or 4).
         """
         patterns = [
             r'The correct answer is[:\s]*([1-4])',
@@ -193,14 +161,7 @@ class Evaluator:
 
     def query_gemini_llm(self, question: str, choices: List[str]) -> str:
         """
-        Queries the raw Gemini LLM for an answer.
-
-        Args:
-            question (str): The question text.
-            choices (List[str]): List of choice strings.
-
-        Returns:
-            str: The model's answer.
+        Directly queries the raw Gemini LLM without retrieval/HyDE, for comparison.
         """
         choices_text = "\n".join(choices)
         prompt_text = f"""
@@ -221,22 +182,13 @@ class Evaluator:
 
     def generate_prompt_content_evaluation(
         self,
-        query: str,
+        question: str,
         choices: List[str],
         chunks: List[Dict]
     ) -> Content:
         """
-        Generates prompt content for evaluation using RAG.
-
-        Args:
-            query (str): The question text.
-            choices (List[str]): List of choice strings.
-            chunks (List[Dict]): Retrieved text chunks.
-
-        Returns:
-            Content: The prompt content object.
+        Generates prompt content for the final LLM call (used in the RAG pipeline).
         """
-
         context = "\n\n".join([f"Chunk {i+1}:\n{chunk['content']}" for i, chunk in enumerate(chunks)])
         choices_text = "\n".join(choices)
         prompt_text = f"""
@@ -252,7 +204,7 @@ class Evaluator:
         {context}
 
         Question:
-        {query}
+        {question}
 
         Choices:
         {choices_text}
@@ -267,77 +219,93 @@ class Evaluator:
         )
         return user_prompt
 
-    def query_rag_pipeline(self, question: str, choices: List[str]) -> str:
+    def generate_hypothetical_answer(self, question: str) -> str:
         """
-        Queries the RAG pipeline to get an answer.
-
-        Args:
-            question (str): The question text.
-            choices (List[str]): List of choice strings.
-
-        Returns:
-            str: The model's answer.
+        Generates a concise hypothetical answer for the user query (HyDE step).
         """
         try:
-            # Step 1: Vector Search
-            retrieved_chunks = self.vector_searcher.vector_search(
+            prompt_text = f"Provide a concise hypothetical answer for the query:\n\n{question}\n\nAnswer:"
+            user_prompt = Content(
+                role="user",
+                parts=[Part.from_text(prompt_text)]
+            )
+            response = self.generative_model.generate_content(
+                user_prompt, generation_config=self.generation_config
+            )
+            return response.text.strip()
+        except Exception as e:
+            logging.error(f"Error generating hypothetical answer: {e}", exc_info=True)
+            return ""
+
+    def query_rag_pipeline(self, question: str, choices: List[str]) -> str:
+        """
+        Refactored RAG pipeline using HyDE:
+          1) Generate a hypothetical short answer from the question.
+          2) Vector search for the query (top 30).
+          3) Vector search for the hypothetical answer (top 30).
+          4) Combine them, then rerank top 20.
+          5) Generate a final answer with the top 20 chunks.
+        """
+        try:
+            # 1) Hypothetical answer
+            hypothetical_answer = self.generate_hypothetical_answer(question)
+
+            # 2) Retrieve 30 chunks for the original query
+            retrieved_chunks_query = self.vector_searcher.vector_search(
                 index_endpoint_display_name=self.index_endpoint_display_name,
                 deployed_index_id=self.deployed_index_id,
                 query_text=question,
-                num_neighbors=self.num_neighbors,
+                num_neighbors=30
             )
+            # 3) Retrieve 30 chunks for the hypothetical answer (if any)
+            retrieved_chunks_hypo = []
+            if hypothetical_answer:
+                retrieved_chunks_hypo = self.vector_searcher.vector_search(
+                    index_endpoint_display_name=self.index_endpoint_display_name,
+                    deployed_index_id=self.deployed_index_id,
+                    query_text=hypothetical_answer,
+                    num_neighbors=30
+                )
 
-            if not retrieved_chunks:
-                logging.warning("No chunks retrieved for the query.")
+            # Combine them
+            combined_chunks = retrieved_chunks_query + retrieved_chunks_hypo
+            if not combined_chunks:
+                logging.warning("No chunks retrieved (query + hypothetical).")
                 return "No relevant information found."
 
-            # Step 2: Reranking
-            reranked_chunks = self.reranker.rerank(
-                query=question,
-                records=retrieved_chunks,
-            )
-            logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
-            
-            if not reranked_chunks:
+            # 4) Rerank to top 20
+            reranked_chunks = self.reranker.rerank(query=question, records=combined_chunks)
+            top_20_chunks = reranked_chunks[:20]
+            if not top_20_chunks:
                 logging.warning("Reranking returned no results.")
                 return "No relevant information found after reranking."
 
-            # Step 3: Generate Prompt with Reranked Chunks
-            prompt_content = self.generate_prompt_content_evaluation(question, choices, reranked_chunks)
-
-            # Step 4: Generate Response from RAG Pipeline
-            assistant_response = self.safe_generate_content(prompt_content)
-            return assistant_response.strip() if assistant_response else "Error"
-
+            # 5) Generate final response with top 20 chunks
+            prompt_content = self.generate_prompt_content_evaluation(question, choices, top_20_chunks)
+            final_answer = self.safe_generate_content(prompt_content)
+            return final_answer.strip() if final_answer else "Error"
         except Exception as e:
-            logging.error(f"Error in RAG pipeline for question '{question}': {e}", exc_info=True)
+            logging.error(f"Error in HyDE RAG pipeline for question '{question}': {e}", exc_info=True)
             return "Error"
 
     def evaluate_single_entry(self, entry: List[str], delay: float = 0.5) -> Dict:
         """
-        Evaluates a single Q&A entry using both RAG and Gemini LLM.
-
-        Args:
-            entry (List[str]): [question, choices, correct_answer]
-            delay (float, optional): Delay between requests. Defaults to 0.5.
-
-        Returns:
-            Dict: Evaluation results.
+        Evaluates a single Q&A entry using both HyDE RAG pipeline and direct LLM.
         """
         try:
             time.sleep(delay)
             question, choices, correct_str = entry
             correct_choice = correct_str.strip()
 
-            # Query RAG
+            # Query RAG (HyDE pipeline)
             rag_full_answer = self.query_rag_pipeline(question, choices)
             rag_pred_choice = self.extract_choice_from_answer(rag_full_answer)
-            rag_correct = rag_pred_choice == correct_choice
+            rag_correct = (rag_pred_choice == correct_choice)
 
-            # Query Gemini
+            # Query Gemini (no RAG, direct LLM)
             gemini_full_answer = self.query_gemini_llm(question, choices)
             gemini_pred_choice = self.extract_choice_from_answer(gemini_full_answer)
-            gemini_correct = gemini_pred_choice == correct_choice
+            gemini_correct = (gemini_pred_choice == correct_choice)
 
             return {
                 'Question': question,
@@ -347,7 +315,6 @@ class Evaluator:
                 'Gemini Predicted Answer': gemini_full_answer,
                 'Gemini Correct': gemini_correct
             }
-
         except Exception as e:
             logging.error(f"Error processing entry: {e}", exc_info=True)
             return {
@@ -367,16 +334,7 @@ class Evaluator:
         max_workers: int = 1
     ) -> Tuple[float, float]:
         """
-        Evaluates models in parallel and records results in an Excel file.
-
-        Args:
-            qna_dataset (List[List[str]]): List of Q&A entries.
-            num_questions (int): Number of questions to evaluate.
-            excel_file_path (str): Path to save the Excel results.
-            max_workers (int, optional): Number of parallel threads. Defaults to 1.
-
-        Returns:
-            Tuple[float, float]: RAG and Gemini accuracies.
+        Evaluates models in parallel on a subset of the Q&A dataset, saving results to an Excel file.
         """
         qna_subset = qna_dataset[:num_questions]
         wb = Workbook()
@@ -409,57 +367,47 @@ class Evaluator:
                 for row in rows_buffer:
                     ws.append(row)
                 wb.save(excel_file_path)
-            rows_buffer.clear()
+                rows_buffer.clear()
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(self.evaluate_single_entry, entry): idx
-                for idx, entry in enumerate(qna_subset, 1)
+            future_to_result = {
+                executor.submit(self.evaluate_single_entry, entry, 0.5): entry
+                for entry in qna_subset
             }
-            for future in tqdm(
-                as_completed(futures),
-                total=len(futures),
-                desc="Evaluating Q&A Entries"
-            ):
-                idx = futures[future]
-                try:
-                    result = future.result()
+            for future in tqdm(as_completed(future_to_result), total=len(future_to_result), desc="Evaluating"):
+                result = future.result()
+                processed += 1
 
-                    if result.get('RAG Correct'):
-                        rag_correct += 1
-                    if result.get('Gemini Correct'):
-                        gemini_correct += 1
+                if result['RAG Correct']:
+                    rag_correct += 1
+                if result['Gemini Correct']:
+                    gemini_correct += 1
 
-                    processed += 1
-                    row = [
-                        result.get('Question', ''),
-                        result.get('Correct Answer', ''),
-                        result.get('RAG Predicted Answer', ''),
-                        result.get('RAG Correct', False),
-                        result.get('Gemini Predicted Answer', ''),
-                        result.get('Gemini Correct', False),
-                    ]
-                    rows_buffer.append(row)
+                row = [
+                    result['Question'],
+                    result['Correct Answer'],
+                    result['RAG Predicted Answer'],
+                    str(result['RAG Correct']),
+                    result['Gemini Predicted Answer'],
+                    str(result['Gemini Correct'])
+                ]
+                rows_buffer.append(row)
+                # Flush rows in batches
+                if len(rows_buffer) >= buffer_size:
+                    flush_rows_buffer()
 
-                    if len(rows_buffer) >= buffer_size:
-                        flush_rows_buffer()
-
-                except Exception as exc:
-                    logging.error(f"Exception for question {idx}: {exc}")
-
+        # Flush any remaining rows
         flush_rows_buffer()
-        wb.close()
 
-        rag_accuracy = (rag_correct / processed) * 100.0 if processed > 0 else 0
-        gemini_accuracy = (gemini_correct / processed) * 100.0 if processed > 0 else 0
+        # Compute accuracies
+        rag_accuracy = (rag_correct / processed) * 100 if processed else 0
+        gemini_accuracy = (gemini_correct / processed) * 100 if processed else 0
 
         logging.info(f"RAG Accuracy: {rag_accuracy:.2f}%")
         logging.info(f"Gemini Accuracy: {gemini_accuracy:.2f}%")
 
         return rag_accuracy, gemini_accuracy
     
-
-
     def visualize_accuracies(self, rag_acc: float, gemini_acc: float, save_path: str = None):
         """
         Visualizes the accuracy comparison between RAG Pipeline and Gemini LLM.
