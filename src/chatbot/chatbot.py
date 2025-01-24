@@ -230,12 +230,19 @@ class Chatbot:
 
         <sections>
             <answer-format>
-                Begin with a brief introduction summarizing the entire answer. Do not use filler words such as "This response ...", "This document...", "This section...". etc.
+                Begin with a brief introduction summarizing the entire answer.
                 Use high-level headings (##) and subheadings (###) to organize content.
-                Present information in bullet points or numbered lists to show the hierarchical structure.
-                **Use the document names and page numbers from the context for references, formatted as:** *(Reference: [Document Name], page [Page Number(s)])*.
-                **Under each high-level heading(##) and its subheadings(###), **DO NOT** include references right after bullet points( - or *) and numbered lists.**
-                **Only include one combined reference at the end of the major heading(##) on separate, indented lines with a smaller font.**
+                Present information in bullet points or numbered lists to illustrate hierarchy.
+
+                **References Rule**:
+                - **Do NOT** place references after individual bullets or sentences.
+                - **Do NOT** place references inline within paragraphs.
+                - Instead, gather all the references at the **end of the relevant heading** (## or ###) in **one combined block**.
+                - Format references in smaller font, using HTML `<small>` tags and indentation. For example:
+                <small>
+                    &nbsp;&nbsp;*(Reference: [Document Name], page [Page Number(s)])*
+                    &nbsp;&nbsp;*(Reference: [Another Document], page [Page Number(s)])*
+                </small>
             </answer-format>
             <markdown-guidelines>
                 <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
