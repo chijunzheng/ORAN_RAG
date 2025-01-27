@@ -144,10 +144,17 @@ class Chatbot:
             parts=[Part.from_text(prompt)]
         )
 
+        # OVERRIDE: Use lower randomness for concept extraction
+        concept_generation_config = GenerationConfig(
+        temperature=0.0,   # or 0.1
+        top_p=1.0,         # no nucleus sampling
+        max_output_tokens=128 
+        )
+
         try:
             response = self.generative_model.generate_content(
                 prompt_content,
-                generation_config=self.generation_config,
+                generation_config=concept_generation_config,
             )
             core_concept = response.text.strip()
             # Basic sanitization
