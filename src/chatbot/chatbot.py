@@ -28,27 +28,13 @@ class Chatbot:
         generation_temperature: float,
         generation_top_p: float,
         generation_max_output_tokens: int,
-        vector_searcher,  
+        vector_searcher,
         credentials,
         num_neighbors: int,
         reranker: Reranker
     ):
         """
         Initializes the Chatbot with specific configuration parameters.
-        
-        Args:
-            project_id (str): Google Cloud project ID.
-            location (str): Google Cloud location (e.g., 'us-central1').
-            bucket_name (str): Name of the GCS bucket.
-            embeddings_path (str): Path within the GCS bucket for embeddings.
-            bucket_uri (str): URI of the GCS bucket.
-            index_endpoint_display_name (str): Name of the index endpoint.
-            deployed_index_id (str): ID of the deployed index.
-            generation_temperature (float): Temperature parameter for generation.
-            generation_top_p (float): Top-p parameter for generation.
-            generation_max_output_tokens (int): Maximum tokens for generation.
-            vector_searcher (VectorSearcher): Instance of VectorSearcher for performing searches.
-            reranker (Reranker): Instance of Reranker for reranking results.
         """
         try:
             self.project_id = project_id
@@ -63,7 +49,11 @@ class Chatbot:
             self.reranker = reranker
 
             # Initialize AI Platform
-            aiplatform.init(project=self.project_id, location=self.location, credentials=credentials)
+            aiplatform.init(
+                project=self.project_id, 
+                location=self.location, 
+                credentials=credentials
+            )
             logging.info(f"Initialized Chatbot with project_id='{self.project_id}', location='{self.location}', bucket_uri='{self.bucket_uri}'")
 
             # Initialize Firestore Client
@@ -93,13 +83,7 @@ class Chatbot:
         return str(uuid.uuid4())
 
     def save_conversation(self, session_id: str, conversation_history: List[Dict]):
-        """
-        Saves the conversation history to Firestore.
-        
-        Args:
-            session_id (str): Unique session identifier.
-            conversation_history (List[Dict]): List of conversation turns.
-        """
+        """Saves the conversation history to Firestore."""
         try:
             self.db.collection('conversations').document(session_id).set({
                 'history': conversation_history
@@ -110,15 +94,7 @@ class Chatbot:
             raise
 
     def load_conversation(self, session_id: str) -> List[Dict]:
-        """
-        Loads the conversation history from Firestore.
-        
-        Args:
-            session_id (str): Unique session identifier.
-        
-        Returns:
-            List[Dict]: List of conversation turns.
-        """
+        """Loads the conversation history from Firestore."""
         try:
             doc = self.db.collection('conversations').document(session_id).get()
             if doc.exists:
@@ -132,17 +108,62 @@ class Chatbot:
             logging.error(f"Failed to load conversation history: {e}", exc_info=True)
             raise
 
-    def generate_prompt_content(self, query: str, chunks: List[Dict], conversation_history: List[Dict]) -> Content:
+    # ---------------------------------------------------------
+    # 1) STEP-BACK METHOD: Identify the "Core ORAN Concept" 
+    # ---------------------------------------------------------
+    def generate_core_concept(self, user_query: str, conversation_history: List[Dict]) -> str:
         """
-        Generates the prompt content for the LLM.
-        
-        Args:
-            query (str): User's query.
-            chunks (List[Dict]): Retrieved text chunks.
-            conversation_history (List[Dict]): Past conversation history.
-        
-        Returns:
-            Content: The prompt content object.
+        Calls the LLM to generate the core ORAN concept behind a query.
+        Minimal step-back approach: we feed the user_query (and optionally part of the conversation).
+        """
+        # You can optionally incorporate the last N conversation turns if you want
+        # context from the conversation. For brevity, we’ll just do the user query.
+        truncated_history = conversation_history[-3:]  # Last 3 turns, for example
+        conversation_text = ""
+        for turn in truncated_history:
+            conversation_text += f"User: {turn['user']}\nAssistant: {turn['assistant']}\n"
+
+        # Create a simple prompt to instruct the model to identify the “core concept”
+        prompt = f"""
+        You are an O-RAN expert. Analyze the user's query below 
+        and identify the single core concept needed to answer it.
+
+        Conversation (recent):
+        {conversation_text}
+
+        User Query: {user_query}
+
+        Instructions:
+        1. Provide a concise concept or principle behind this query.
+        2. Do not provide any further explanation—only briefly describe the concept.
+
+        Concept:
+        """
+        prompt_content = Content(
+            role="user",
+            parts=[Part.from_text(prompt)]
+        )
+
+        try:
+            response = self.generative_model.generate_content(
+                prompt_content,
+                generation_config=self.generation_config,
+            )
+            core_concept = response.text.strip()
+            # Basic sanitization
+            return core_concept if core_concept else "O-RAN Architecture (General)"
+        except Exception as e:
+            logging.error(f"Error generating core concept: {e}", exc_info=True)
+            # Return a fallback concept if generation fails
+            return "O-RAN Architecture (General)"
+
+    # ---------------------------------------------------------
+    # 2) PROMPT BUILDING 
+    # ---------------------------------------------------------
+    def generate_prompt_content(self, query: str, concept: str, chunks: List[Dict], conversation_history: List[Dict]) -> Content:
+        """
+        Generates the prompt content for the LLM using the core concept 
+        from the step-back prompting stage.
         """
         history_text = ""
         for turn in conversation_history[-5:]:
@@ -154,17 +175,23 @@ class Chatbot:
             for i, chunk in enumerate(chunks)
         ])
 
+        # Note the insertion of the "Core Concept" in the prompt
         prompt_text = f"""
         <purpose>
-            You are an expert in O-RAN systems. Utilize the conversation history, context, and if necessary, pre-trained knowledge to provide detailed and accurate answers to the user's queries.
+            You are an expert in O-RAN systems. Always start by focusing on the "core concept" below 
+            to keep the reasoning aligned. Then use conversation history and context 
+            (plus pre-trained knowledge if necessary) to provide an accurate answer.
         </purpose>
 
+        <core-concept>
+        {concept}
+        </core-concept>
+
         <instructions>
-            <instruction>Use the context, conversation history, and if necessary, pre-trained knowledge to form a concise, thorough response.</instruction>
+            <instruction>Use the concept and the context to form a concise, thorough response.</instruction>
             <instruction>Cover all relevant aspects in a clear, step-by-step manner.</instruction>
             <instruction>Follow the specified answer format, headings, and style guides.</instruction>
             <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
-            <instruction>Do not enclose the entire response within code blocks. Only use code blocks for specific code snippets or technical examples if necessary.</instruction>
         </instructions>
 
         <context>
@@ -189,11 +216,7 @@ class Chatbot:
                 - **Do NOT** place references after individual bullets or sentences.
                 - **Do NOT** place references inline within paragraphs.
                 - Instead, gather all the references at the **end of the relevant heading** (## or ###) in **one combined block**.
-                - Format references in smaller font, using HTML `<small>` tags and indentation. For example:
-                <small>
-                    &nbsp;&nbsp;*(Reference: [Document Name], page [Page Number(s)])*
-                    &nbsp;&nbsp;*(Reference: [Another Document], page [Page Number(s)])*
-                </small>
+                - Format references in smaller font, using HTML `<small>` tags and indentation.
             </answer-format>
             <markdown-guidelines>
                 <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
@@ -203,7 +226,7 @@ class Chatbot:
             </markdown-guidelines>
             <important-notes>
                 <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
-                <important-note>Be logical and concise, while providing as much details as possible.</important-note>
+                <important-note>Be logical and concise, while providing as much detail as possible.</important-note>
                 <important-note>Ensure the explanation is presented step-by-step, covering relevant stages.</important-note>
             </important-notes>
             <audience>
@@ -218,23 +241,19 @@ class Chatbot:
 
         </answer>
         """
+
         user_prompt_content = Content(
             role="user",
-            parts=[
-                Part.from_text(prompt_text)
-            ]
+            parts=[Part.from_text(prompt_text)]
         )
         return user_prompt_content
 
+    # ---------------------------------------------------------
+    # 3) FINAL RESPONSE
+    # ---------------------------------------------------------
     def generate_response(self, prompt_content: Content) -> str:
         """
         Generates a response from the generative model.
-        
-        Args:
-            prompt_content (Content): The prompt content object.
-        
-        Returns:
-            str: The assistant's response.
         """
         try:
             response = self.generative_model.generate_content(
@@ -258,17 +277,19 @@ class Chatbot:
 
     def get_response(self, user_query: str, conversation_history: List[Dict]) -> str:
         """
-        Processes the user query along with conversation history and returns the chatbot response.
-        
-        Args:
-            user_query (str): The user's query.
-            conversation_history (List[Dict]): List of previous conversation turns.
-        
-        Returns:
-            str: The chatbot's response.
+        Processes the user query along with conversation history and returns the chatbot response
+        with Step-Back Prompting integrated.
         """
         try:
-            # 1. Retrieve relevant chunks using vector search
+            # --------------------------------------------------------
+            # (A) STEP-BACK: Identify the core concept
+            # --------------------------------------------------------
+            core_concept = self.generate_core_concept(user_query, conversation_history)
+            logging.info(f"Step-Back concept extracted: {core_concept}")
+
+            # --------------------------------------------------------
+            # (B) Retrieve relevant chunks using vector search
+            # --------------------------------------------------------
             retrieved_chunks = self.vector_searcher.vector_search(
                 index_endpoint_display_name=self.index_endpoint_display_name,
                 deployed_index_id=self.deployed_index_id,
@@ -281,9 +302,13 @@ class Chatbot:
                 logging.warning("No chunks retrieved for the query.")
                 return "I'm sorry, I couldn't find relevant information to answer your question."
 
-            # 2. Rerank the retrieved chunks
+            # --------------------------------------------------------
+            # (C) Rerank the retrieved chunks
+            #     (Optional) If you want to rerank with the concept, 
+            #     pass `core_concept` instead of `user_query` below.
+            # --------------------------------------------------------
             reranked_chunks = self.reranker.rerank(
-                query=user_query,
+                query=core_concept,
                 records=retrieved_chunks
             )
             logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
@@ -292,14 +317,19 @@ class Chatbot:
                 logging.warning("Reranking returned no results.")
                 return "I'm sorry, I couldn't find relevant information after reranking."
 
-            # 3. Generate prompt with reranked chunks and conversation history
+            # --------------------------------------------------------
+            # (D) Generate final prompt with concept + reranked chunks
+            # --------------------------------------------------------
             prompt_content = self.generate_prompt_content(
                 query=user_query,
+                concept=core_concept,
                 chunks=reranked_chunks,
                 conversation_history=conversation_history
             )
 
-            # 4. Generate response from the model
+            # --------------------------------------------------------
+            # (E) Generate the final LLM response
+            # --------------------------------------------------------
             assistant_response = self.generate_response(prompt_content)
 
             return assistant_response.strip() if assistant_response else "I'm sorry, I couldn't generate a response."
