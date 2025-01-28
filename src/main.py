@@ -364,6 +364,7 @@ def main():
                 qna_dataset=qna_dataset,
                 num_questions=num_questions,
                 excel_file_path=dynamic_excel_path,
+                plot_save_path=evaluation_config['plot_save_path'],
                 max_workers=evaluation_config['max_workers']
             )
             logging.info(f"Evaluation completed. RAG Accuracy: {rag_accuracy}%, Gemini Accuracy: {gemini_accuracy}%")
@@ -379,7 +380,7 @@ def main():
                 dynamic_plot_path = None  # If not specified, no plot will be saved
 
             # Call the visualize_accuracies method from Evaluator
-            evaluator.visualize_accuracies(rag_accuracy, gemini_accuracy, save_path=dynamic_plot_path)
+            evaluator.plot_accuracies(rag_accuracy, gemini_accuracy, save_path=dynamic_plot_path)
         
         except Exception as e:
             logging.error(f"Evaluation failed: {e}")

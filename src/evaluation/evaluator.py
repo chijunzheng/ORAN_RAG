@@ -12,14 +12,10 @@ from google.cloud import storage
 from openpyxl import Workbook
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from vertexai.generative_models import GenerativeModel, GenerationConfig
+
+from vertexai.generative_models import GenerativeModel, GenerationConfig, Content, Part
 from vertexai.preview.language_models import TextEmbeddingModel, TextEmbeddingInput
-from vertexai.generative_models import (
-    GenerativeModel,
-    GenerationConfig,
-    Content,
-    Part
-)
+
 from src.vector_search.searcher import VectorSearcher
 from src.vector_search.reranker import Reranker
 
@@ -41,20 +37,6 @@ class Evaluator:
     ):
         """
         Initializes the Evaluator with necessary configurations.
-
-        Args:
-            project_id (str): Google Cloud project ID.
-            location (str): Google Cloud region.
-            bucket_name (str): GCS bucket name.
-            embeddings_path (str): Path within the bucket where embeddings are stored.
-            qna_dataset_path (str): Path to the Q&A dataset in GCS.
-            index_endpoint_display_name (str): Display name of the index endpoint.
-            deployed_index_id (str): ID of the deployed index.
-            generation_config (Dict): Configuration for text generation parameters.
-            vector_searcher (VectorSearcher): Instance of VectorSearcher for performing vector searches.
-            credentials: Google Cloud credentials object.
-            num_neighbors (int): Number of neighbors to retrieve per similar query.
-            reranker (Reranker): Instance of Reranker for reranking results.
         """
         self.project_id = project_id
         self.location = location
@@ -77,60 +59,6 @@ class Evaluator:
 
         logging.info("Evaluator initialized successfully.")
 
-    def upload_qna_dataset_to_gcs(self, local_file_path: str, gcs_file_name: str):
-        """
-        Uploads the Q&A dataset to GCS.
-
-        Args:
-            local_file_path (str): Local path of the Q&A dataset.
-            gcs_file_name (str): Desired GCS path for the dataset.
-        """
-        try:
-            blob = self.bucket.blob(gcs_file_name)
-            blob.upload_from_filename(local_file_path, content_type="application/json")
-            logging.info(f"Uploaded {local_file_path} to gs://{self.bucket_name}/{gcs_file_name}")
-        except Exception as e:
-            logging.error(f"Failed to upload Q&A dataset to GCS: {e}", exc_info=True)
-            raise
-
-    def load_qna_dataset_from_gcs(self) -> List[List[str]]:
-        """
-        Loads the Q&A dataset from GCS.
-
-        Returns:
-            List[List[str]]: List of Q&A entries as [question, choices, correct_answer].
-        """
-        try:
-            blob = self.bucket.blob(self.qna_dataset_path)
-            content = blob.download_as_text()
-
-            qna_dataset = []
-            for line_number, line in enumerate(content.splitlines(), 1):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    qna_entry = json.loads(line)
-                    if isinstance(qna_entry, list) and len(qna_entry) == 3:
-                        qna_dataset.append(qna_entry)
-                    elif isinstance(qna_entry, dict):
-                        question = qna_entry.get("question")
-                        choices = qna_entry.get("choices")
-                        correct_answer = qna_entry.get("answer")
-                        if question and choices and correct_answer:
-                            qna_dataset.append([question, choices, correct_answer])
-                        else:
-                            logging.warning(f"Line {line_number}: Missing fields.")
-                    else:
-                        logging.warning(f"Line {line_number}: Unexpected format.")
-                except json.JSONDecodeError as e:
-                    logging.error(f"Line {line_number}: JSONDecodeError - {e}")
-            logging.info(f"Loaded {len(qna_dataset)} Q&A entries from GCS.")
-            return qna_dataset
-        except Exception as e:
-            logging.error(f"Failed to load Q&A dataset from GCS: {e}", exc_info=True)
-            raise
-
     def safe_generate_content(
         self,
         content: Content,
@@ -140,15 +68,6 @@ class Evaluator:
     ) -> str:
         """
         Generates content with exponential backoff and jitter.
-
-        Args:
-            content (Content): Content object for the generative model.
-            retries (int, optional): Number of retry attempts. Defaults to 10.
-            backoff_factor (int, optional): Backoff multiplier. Defaults to 2.
-            max_wait (int, optional): Maximum wait time. Defaults to 30.
-
-        Returns:
-            str: Generated text or "Error" upon failure.
         """
         wait_time = 1
         for attempt in range(1, retries + 1):
@@ -171,16 +90,280 @@ class Evaluator:
                 time.sleep(sleep_time + jitter)
                 wait_time *= backoff_factor
         return "Error"
-
-    def extract_choice_from_answer(self, answer_text: str) -> str:
+    
+    # ----------------------------------------------------------------------
+    # 1) LOAD Q&A DATASET
+    # ----------------------------------------------------------------------
+    def load_qna_dataset_from_gcs(self) -> List[List[str]]:
         """
-        Extracts the choice number from the model's answer.
-
-        Args:
-            answer_text (str): The model's response.
+        Loads the Q&A dataset from GCS.
 
         Returns:
-            str: Extracted choice number or None.
+            List[List[str]]: Q&A entries as [question, choices, correct_answer].
+        """
+        try:
+            blob = self.bucket.blob(self.qna_dataset_path)
+            content = blob.download_as_text()
+
+            qna_dataset = []
+            for line_number, line in enumerate(content.splitlines(), 1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    qna_entry = json.loads(line)
+                    # Must yield [question, choices, correct_answer]
+                    if isinstance(qna_entry, list) and len(qna_entry) == 3:
+                        qna_dataset.append(qna_entry)
+                    elif isinstance(qna_entry, dict):
+                        question = qna_entry.get("question")
+                        choices = qna_entry.get("choices")
+                        correct_answer = qna_entry.get("answer")
+                        if question and choices and correct_answer:
+                            qna_dataset.append([question, choices, correct_answer])
+                        else:
+                            logging.warning(f"Line {line_number}: Missing fields.")
+                    else:
+                        logging.warning(f"Line {line_number}: Unexpected format.")
+                except json.JSONDecodeError as e:
+                    logging.error(f"Line {line_number}: JSONDecodeError - {e}")
+            logging.info(f"Loaded {len(qna_dataset)} Q&A entries from GCS.")
+            return qna_dataset
+        except Exception as e:
+            logging.error(f"Failed to load Q&A dataset from GCS: {e}", exc_info=True)
+            raise
+
+    # ----------------------------------------------------------------------
+    # 2) STEP-BACK: Generate a single core concept for a question
+    # ----------------------------------------------------------------------
+    def generate_eval_core_concept(self, question: str) -> str:
+        """
+        Calls the LLM to generate a single "core ORAN concept" behind the question.
+        We'll keep it minimal. 
+        You can further lower temperature or do concept normalization as needed.
+        """
+        prompt_text = f"""
+        You are an O-RAN expert. Analyze the question below
+        and identify the single core concept needed to answer it.
+        
+        Question: {question}
+
+        Instructions:
+        1. Provide a concise concept or principle behind this question.
+        2. Do not provide further explanation—only briefly describe the concept.
+
+        Concept:
+        """
+        prompt_content = Content(
+            role="user",
+            parts=[Part.from_text(prompt_text)]
+        )
+
+        try:
+            # Use safe_generate_content
+            raw_text = self.safe_generate_content(prompt_content)
+            if not raw_text:
+                return "O-RAN Architecture (General)"
+            return raw_text
+        except Exception as e:
+            logging.error(f"Error generating eval core concept: {e}", exc_info=True)
+            return "O-RAN Architecture (General)"
+
+    # ----------------------------------------------------------------------
+    # 3) MULTI-QUERY GENERATION (Anchored to the Concept)
+    # ----------------------------------------------------------------------
+    def generate_concept_anchored_queries(self, user_query: str, core_concept: str, num_variations: int = 3) -> List[str]:
+        """
+        Generates additional queries that revolve around the identified core concept,
+        exploring the user's question from different angles but anchored to the concept.
+        """
+        prompt_text = f"""
+        You are an O-RAN expert. The user has asked: "{user_query}"
+        The core concept is: "{core_concept}"
+
+        Generate {num_variations} unique and diverse queries that explore or elaborate on this core concept,
+        while remaining relevant to the user's question. Each query should:
+          - Reflect or incorporate the concept "{core_concept}"
+          - Provide a different perspective or subtopic
+        Ensure they are distinct yet aligned with the user's overall intent.
+
+        Similar Queries:
+        1.
+        2.
+        3.
+        """
+        prompt_content = Content(
+            role="user",
+            parts=[Part.from_text(prompt_text)]
+        )
+
+        try:
+            # Use safe_generate_content
+            raw_text = self.safe_generate_content(prompt_content)
+
+            lines = raw_text.splitlines()
+            queries = []
+            for line in lines:
+                line_stripped = line.strip()
+                if line_stripped.startswith(("1.", "2.", "3.", "4.")):
+                    # parse after the digit
+                    query_part = line_stripped.split(".", 1)[-1].strip()
+                    if query_part:
+                        queries.append(query_part)
+            if not queries:
+                queries = [user_query]  # fallback
+            return queries
+        except Exception as e:
+            logging.error(f"Error generating concept-anchored queries: {e}", exc_info=True)
+            return [user_query]
+
+    # ----------------------------------------------------------------------
+    # 4) PROMPT & ANSWER: Evaluate a single question using Step-Back + Multi-Query
+    # ----------------------------------------------------------------------
+    def query_rag_stepback_multiquery(self, question: str, choices: List[str]) -> str:
+        """
+        Step-Back + Multi-Query for multiple-choice questions:
+         1) Generate core concept
+         2) Generate multi queries anchored to concept
+         3) Retrieve + Rerank
+         4) Build final prompt
+         5) Let LLM pick the correct choice
+        """
+        try:
+            # (A) Generate the core concept
+            core_concept = self.generate_eval_core_concept(question)
+            logging.debug(f"[Step-Back] Concept: {core_concept}")
+
+            # (B) Generate multi queries anchored to the concept
+            anchored_queries = self.generate_concept_anchored_queries(question, core_concept, num_variations=3)
+            all_queries = [question] + anchored_queries
+            logging.debug(f"All queries: {all_queries}")
+
+            # (C) Retrieve from each query & merge
+            all_chunks = []
+            for q_variant in all_queries:
+                partial_chunks = self.vector_searcher.vector_search(
+                    index_endpoint_display_name=self.index_endpoint_display_name,
+                    deployed_index_id=self.deployed_index_id,
+                    query_text=q_variant,
+                    num_neighbors=self.num_neighbors  # e.g., 30
+                )
+                all_chunks.extend(partial_chunks)
+
+            if not all_chunks:
+                logging.warning("No chunks retrieved for any query variant.")
+                return "No relevant information found."
+
+            # (D) Rerank the merged chunks by core concept
+            rerank_method = core_concept + " " + question
+            reranked_chunks = self.reranker.rerank(query=rerank_method, records=all_chunks)
+            if not reranked_chunks:
+                logging.warning("Reranking returned no results.")
+                return "No relevant information found after reranking."
+
+            top_k = 20
+            top_chunks = reranked_chunks[:top_k]
+
+            # (E) Build final multiple-choice prompt, asking for the correct choice
+            answer_text = self.generate_mc_prompt_and_answer(question, choices, top_chunks)
+            return answer_text.strip() if answer_text else "Error"
+        except Exception as e:
+            logging.error(f"Error in step-back multi-query pipeline for Q: '{question}' => {e}", exc_info=True)
+            return "Error"
+
+    # ----------------------------------------------------------------------
+    # 5) Build the final multiple-choice prompt + answer
+    # ----------------------------------------------------------------------
+    def generate_mc_prompt_and_answer(self, question: str, choices: List[str], chunks: List[Dict]) -> str:
+        """
+        Builds a final multiple-choice prompt with the top reranked chunks, 
+        then asks the LLM to pick the best answer choice.
+        """
+        context_text = "\n\n".join([
+            f"Chunk {i+1}:\n{chunk['content']}" for i, chunk in enumerate(chunks)
+        ])
+        choices_text = "\n".join(choices)
+
+        prompt_text = f"""
+        You are an O-RAN expert. Use the context below to determine the correct answer choice 
+        for the multiple-choice question.
+
+        Context:
+        {context_text}
+
+        Question:
+        {question}
+
+        Choices:
+        {choices_text}
+
+        Please provide the correct answer choice number (1, 2, 3, or 4) at the start of your answer, 
+        such as "The correct answer is: X", and optionally a brief rationale.
+        """
+
+        prompt_content = Content(
+            role="user",
+            parts=[Part.from_text(prompt_text)]
+        )
+
+        try:
+            # Use safe_generate_content
+            raw_text = self.safe_generate_content(prompt_content)
+            return raw_text
+    
+        except Exception as e:
+            logging.error(f"Error generating MC final answer: {e}", exc_info=True)
+            return "Error"
+
+    # ----------------------------------------------------------------------
+    # 6) Evaluate a single Q&A entry
+    # ----------------------------------------------------------------------
+    def evaluate_single_entry(self, entry: List[str], delay: float = 0.5) -> Dict:
+        """
+        Evaluates a single Q&A entry with Step-Back + Multi-Query RAG.
+        Expects entry = [question, choices, correct_answer].
+        Returns a dictionary of results.
+        """
+        try:
+            time.sleep(delay)
+            question, choices, correct_str = entry
+            correct_choice = correct_str.strip()
+
+            # Query RAG with Step-Back + Multi-Query
+            rag_answer = self.query_rag_stepback_multiquery(question, choices)
+            rag_pred_choice = self.extract_choice_from_answer(rag_answer)
+            rag_correct = (rag_pred_choice == correct_choice)
+
+            # Optionally, also evaluate a "direct LLM" approach (like Gemini only) if you want to compare:
+            gemini_answer = self.query_gemini_llm(question, choices)
+            gemini_pred_choice = self.extract_choice_from_answer(gemini_answer)
+            gemini_correct = (gemini_pred_choice == correct_choice)
+
+            return {
+                'Question': question,
+                'Correct Answer': correct_choice,
+                'RAG Predicted Answer': rag_answer,
+                'RAG Correct': rag_correct,
+                'Gemini Predicted Answer': gemini_answer,
+                'Gemini Correct': gemini_correct
+            }
+        except Exception as e:
+            logging.error(f"Error evaluating single entry: {e}", exc_info=True)
+            return {
+                'Question': entry[0],
+                'Correct Answer': entry[2].strip(),
+                'RAG Predicted Answer': "Error",
+                'RAG Correct': False,
+                'Gemini Predicted Answer': "Error",
+                'Gemini Correct': False,
+            }
+
+    # ----------------------------------------------------------------------
+    # 7) Extract the choice from an LLM answer
+    # ----------------------------------------------------------------------
+    def extract_choice_from_answer(self, answer_text: str) -> str:
+        """
+        Extracts the choice number (1-4) from the model's answer.
         """
         patterns = [
             r'The correct answer is[:\s]*([1-4])',
@@ -194,16 +377,12 @@ class Evaluator:
                 return match.group(1)
         return None
 
+    # ----------------------------------------------------------------------
+    # 8) Query Gemini LLM directly (no RAG) - optional baseline
+    # ----------------------------------------------------------------------
     def query_gemini_llm(self, question: str, choices: List[str]) -> str:
         """
-        Queries the raw Gemini LLM for an answer.
-
-        Args:
-            question (str): The question text.
-            choices (List[str]): List of choice strings.
-
-        Returns:
-            str: The model's answer.
+        Queries the raw Gemini LLM for an answer (no RAG).
         """
         choices_text = "\n".join(choices)
         prompt_text = f"""
@@ -220,330 +399,140 @@ class Evaluator:
             role="user",
             parts=[Part.from_text(prompt_text)]
         )
-        return self.safe_generate_content(user_prompt)
-
-    def generate_prompt_content_evaluation(
-        self,
-        query: str,
-        choices: List[str],
-        chunks: List[Dict]
-    ) -> Content:
-        """
-        Generates prompt content for evaluation using RAG.
-
-        Args:
-            query (str): The question text.
-            choices (List[str]): List of choice strings.
-            chunks (List[Dict]): Retrieved text chunks.
-
-        Returns:
-            Content: The prompt content object.
-        """
-
-        context = "\n\n".join([f"Chunk {i+1}:\n{chunk['content']}" for i, chunk in enumerate(chunks)])
-        choices_text = "\n".join(choices)
-        prompt_text = f"""
-        You are an expert in O-RAN systems. Utilize the context to provide the correct and logical answer choice to the user's queries.
-
-        Instruction:
-        Please provide the correct answer choice number (1, 2, 3, or 4) only.
-
-        Context:
-        {context}
-
-        Question:
-        {query}
-
-        Choices:
-        {choices_text}
-
-
-        Answer:
-        """
-        user_prompt = Content(
-            role="user",
-            parts=[Part.from_text(prompt_text)]
-        )
-        return user_prompt
-
-    def query_rag_pipeline(self, question: str, choices: List[str]) -> str:
-        """
-        Queries the RAG pipeline to get an answer.
-
-        Args:
-            question (str): The question text.
-            choices (List[str]): List of choice strings.
-
-        Returns:
-            str: The model's answer.
-        """
         try:
-            # Step 1: Generate Similar Queries
-            similar_queries = self.generate_similar_queries(question, num_similar=3)
-            logging.info(f"Generated {len(similar_queries)} similar queries for evaluation.")
-
-            # Step 2: Include Original Query with Similar Queries
-            all_queries = [question] + similar_queries  # Original query + similar queries
-            logging.info(f"Including original query along with similar queries for vector search.")
-
-            # Step 3: Perform Vector Search for Each Similar Query
-            all_retrieved_chunks = []
-            for idx, sim_query in enumerate(all_queries):
-                retrieved_chunks = self.vector_searcher.vector_search(
-                    index_endpoint_display_name=self.index_endpoint_display_name,
-                    deployed_index_id=self.deployed_index_id,
-                    query_text=sim_query,
-                    num_neighbors=30  # 30 chunks per similar query
-                )
-                logging.info(f"Retrieved {len(retrieved_chunks)} chunks for similar query {idx + 1}: '{sim_query}'")
-                all_retrieved_chunks.extend(retrieved_chunks)
-
-            logging.info(f"Total retrieved chunks from all similar queries: {len(all_retrieved_chunks)}")
-
-            if not all_retrieved_chunks:
-                logging.warning("No chunks retrieved for any similar queries.")
-                return "No relevant information found."
-
-            # Step 3: Rerank the Retrieved Chunks
-            reranked_chunks = self.reranker.rerank(
-                query=question,
-                records=all_retrieved_chunks
-            )
-            logging.info(f"Reranked to top {len(reranked_chunks)} chunks.")
-
-            if not reranked_chunks:
-                logging.warning("Reranking returned no results.")
-                return "No relevant information found after reranking."
-
-            # Step 4: Generate Prompt with Reranked Chunks
-            prompt_content = self.generate_prompt_content_evaluation(question, choices, reranked_chunks)
-
-            # Step 5: Generate Response from RAG Pipeline
-            assistant_response = self.safe_generate_content(prompt_content)
-
-            return assistant_response.strip() if assistant_response else "Error"
-
+            # Use safe_generate_content
+            raw_text = self.safe_generate_content(user_prompt)
+            return raw_text
         except Exception as e:
-            logging.error(f"Error in RAG pipeline for question '{question}': {e}", exc_info=True)
+            logging.error(f"Error querying Gemini LLM directly: {e}", exc_info=True)
             return "Error"
 
-    def generate_similar_queries(self, original_query: str, num_similar: int = 3) -> List[str]:
-        """
-        Generates similar queries to the original question using the Gemini LLM.
-
-        Args:
-            original_query (str): The original question.
-            num_similar (int, optional): Number of similar queries to generate. Defaults to 3.
-
-        Returns:
-            List[str]: List of similar queries.
-        """
-        prompt_text = f"""
-        Generate {num_similar} unique and diverse queries that address the same underlying intent as the following question but explore different aspects, perspectives, or use varied terminology. Ensure that each query focuses on a distinct facet of the topic to maximize the diversity of information retrieved.
-
-        Original Query: "{original_query}"
-
-        Similar Queries:
-        1.
-        2.
-        3.
-        """
-        user_prompt = Content(
-            role="user",
-            parts=[Part.from_text(prompt_text)]
-        )
-        similar_queries_text = self.safe_generate_content(user_prompt)
-        similar_queries = []
-        for line in similar_queries_text.split('\n'):
-            if line.strip().startswith(tuple(str(i) + '.' for i in range(1, num_similar + 1))):
-                query = line.split('.', 1)[1].strip()
-                if query:
-                    similar_queries.append(query)
-        logging.debug(f"Generated similar queries: {similar_queries}")
-        return similar_queries
-
+    # ----------------------------------------------------------------------
+    # 9) Evaluate the entire dataset of 3243 Q&A
+    # ----------------------------------------------------------------------
     def evaluate_models_parallel(
         self,
         qna_dataset: List[List[str]],
         num_questions: int,
         excel_file_path: str,
+        plot_save_path: str,
         max_workers: int = 1
     ) -> Tuple[float, float]:
         """
-        Evaluates both the RAG pipeline and the raw Gemini LLM on the Q&A dataset.
+        Evaluates RAG (Step-Back + Multi-Query) vs. direct Gemini LLM on 'num_questions' from 'qna_dataset'.
+        Writes results to Excel, and optionally saves a plot comparing accuracies.
 
-        Args:
-            qna_dataset (List[List[str]]): List of Q&A entries as [question, choices, correct_answer].
-            num_questions (int): Number of questions to evaluate.
-            excel_file_path (str): Path to save the evaluation results Excel file.
-            max_workers (int, optional): Maximum number of worker threads. Defaults to 1.
-
-        Returns:
-            Tuple[float, float]: RAG pipeline accuracy and Gemini LLM accuracy.
+        Returns: (rag_accuracy, gemini_accuracy)
         """
-        selected_qna = random.sample(qna_dataset, min(num_questions, len(qna_dataset)))
-        results = []
+        # Subset dataset
+        subset_data = qna_dataset[:num_questions]
 
+        # Create workbook and sheet
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Evaluation Results"
+        headers = [
+            "Question",
+            "Correct Answer",
+            "RAG Predicted Answer",
+            "RAG Correct",
+            "Gemini Predicted Answer",
+            "Gemini Correct"
+        ]
+        ws.append(headers)
+
+        rag_correct_count = 0
+        gemini_correct_count = 0
+        processed = 0
+
+        # Use progress bar with tqdm
+        results_buffer = []
+        buffer_size = 50  # flush to excel in batches
+        import threading
+        excel_lock = threading.Lock()
+
+        def flush_to_excel():
+            with excel_lock:
+                for row in results_buffer:
+                    ws.append(row)
+                wb.save(excel_file_path)
+            results_buffer.clear()
+
+        # Evaluate in parallel
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_qna = {
-                executor.submit(self.evaluate_single_question, qna): qna for qna in selected_qna
+            futures = {
+                executor.submit(self.evaluate_single_entry, entry): idx
+                for idx, entry in enumerate(subset_data, 1)
             }
 
-            for future in tqdm(as_completed(future_to_qna), total=len(future_to_qna), desc="Evaluating Q&A"):
-                qna = future_to_qna[future]
-                try:
-                    rag_correct, gemini_correct = future.result()
-                    results.append({
-                        'Question': qna[0],
-                        'Choices': qna[1],
-                        'Correct Answer': qna[2],
-                        'RAG Answer Correct': rag_correct,
-                        'Gemini Answer Correct': gemini_correct
-                    })
-                except Exception as e:
-                    logging.error(f"Error evaluating question '{qna[0]}': {e}", exc_info=True)
+            with tqdm(total=len(futures), desc="Evaluating Q&A", ncols=100) as pbar:
+                for future in as_completed(futures):
+                    idx = futures[future]
+                    try:
+                        res = future.result()
+                        question = res['Question']
+                        correct_ans = res['Correct Answer']
+                        rag_pred = res['RAG Predicted Answer']
+                        rag_is_correct = res['RAG Correct']
+                        gemini_pred = res['Gemini Predicted Answer']
+                        gemini_is_correct = res['Gemini Correct']
 
-        # Save results to Excel
-        self.save_results_to_excel(results, excel_file_path)
+                        if rag_is_correct:
+                            rag_correct_count += 1
+                        if gemini_is_correct:
+                            gemini_correct_count += 1
+                        processed += 1
 
-        # Calculate accuracies
-        rag_accuracy = (sum(1 for r in results if r['RAG Answer Correct']) / len(results)) * 100 if results else 0
-        gemini_accuracy = (sum(1 for r in results if r['Gemini Answer Correct']) / len(results)) * 100 if results else 0
+                        row = [
+                            question,
+                            correct_ans,
+                            rag_pred,
+                            "Yes" if rag_is_correct else "No",
+                            gemini_pred,
+                            "Yes" if gemini_is_correct else "No"
+                        ]
+                        results_buffer.append(row)
+                        if len(results_buffer) >= buffer_size:
+                            flush_to_excel()
+                    except Exception as e:
+                        logging.error(f"Error in future result: {e}", exc_info=True)
+                    pbar.update(1)
 
-        return rag_accuracy, gemini_accuracy
+        # Flush any leftover
+        if results_buffer:
+            flush_to_excel()
 
-    def evaluate_single_question(self, qna: List[str]) -> Tuple[bool, bool]:
+        wb.close()
+
+        rag_accuracy = (rag_correct_count / processed) * 100.0 if processed else 0
+        gemini_accuracy = (gemini_correct_count / processed) * 100.0 if processed else 0
+        logging.info(f"RAG Accuracy: {rag_accuracy:.2f}% | Gemini Accuracy: {gemini_accuracy:.2f}%")
+
+        # Optionally plot
+        self.plot_accuracies(rag_accuracy, gemini_accuracy, plot_save_path)
+
+        return (rag_accuracy, gemini_accuracy)
+
+    def plot_accuracies(self, rag_acc: float, gemini_acc: float, save_path: str):
         """
-        Evaluates a single Q&A entry for both RAG and Gemini models.
-
-        Args:
-            qna (List[str]): A Q&A entry as [question, choices, correct_answer].
-
-        Returns:
-            Tuple[bool, bool]: RAG pipeline correctness and Gemini LLM correctness.
+        Creates a bar plot comparing RAG vs. Gemini accuracy, saves to 'save_path'.
         """
-        question, choices, correct_answer = qna
+        import matplotlib.pyplot as plt
 
-        # Evaluate RAG Pipeline
-        rag_response = self.query_rag_pipeline(question, choices)
-        rag_choice = self.extract_choice_from_answer(rag_response)
-        rag_correct = (rag_choice == correct_answer)
+        plt.figure(figsize=(6,5))
+        models = ["RAG (Step-Back+MQ)", "Gemini LLM"]
+        accs = [rag_acc, gemini_acc]
+        bars = plt.bar(models, accs, color=["#4CAF50","#2196F3"])
+        plt.ylim(0, 100)
+        plt.ylabel("Accuracy (%)")
+        plt.title("RAG vs Gemini Accuracy")
 
-        # Evaluate Gemini LLM
-        gemini_response = self.query_gemini_llm(question, choices)
-        gemini_choice = self.extract_choice_from_answer(gemini_response)
-        gemini_correct = (gemini_choice == correct_answer)
+        for i, v in enumerate(accs):
+            plt.text(i, v + 1, f"{v:.2f}%", ha='center', fontweight='bold')
 
-        return rag_correct, gemini_correct
-
-    def save_results_to_excel(self, results: List[Dict], excel_file_path: str):
-        """
-        Saves the evaluation results to an Excel file.
-
-        Args:
-            results (List[Dict]): List of evaluation results.
-            excel_file_path (str): Path to save the Excel file.
-        """
         try:
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Evaluation Results"
-
-            # Write headers
-            headers = ['Question', 'Choices', 'Correct Answer', 'RAG Answer Correct', 'Gemini Answer Correct']
-            ws.append(headers)
-
-            # Write data rows
-            for result in results:
-                ws.append([
-                    result['Question'],
-                    "\n".join(result['Choices']),
-                    result['Correct Answer'],
-                    "Yes" if result['RAG Answer Correct'] else "No",
-                    "Yes" if result['Gemini Answer Correct'] else "No"
-                ])
-
-            wb.save(excel_file_path)
-            logging.info(f"Saved evaluation results to Excel at {excel_file_path}")
+            plt.savefig(save_path, dpi=150)
+            plt.close()
+            logging.info(f"Saved accuracy comparison plot to {save_path}")
         except Exception as e:
-            logging.error(f"Failed to save results to Excel: {e}", exc_info=True)
-            raise
-
-    def visualize_accuracies(self, rag_accuracy: float, gemini_accuracy: float, save_path: str = None):
-        """
-        Visualizes the accuracies of both models using a bar chart.
-
-        Args:
-            rag_accuracy (float): RAG pipeline accuracy percentage.
-            gemini_accuracy (float): Gemini LLM accuracy percentage.
-            save_path (str): Path to save the plot image. Defaults to None.
-        """
-        try:
-            models = ['RAG Pipeline', 'Gemini LLM']
-            accuracies = [rag_accuracy, gemini_accuracy]
-
-            plt.figure(figsize=(8, 6))
-            bars = plt.bar(models, accuracies, color=['#1a73e8', '#34a853'])
-            plt.ylim(0, 100)
-            plt.ylabel('Accuracy (%)')
-            plt.title('Model Accuracies')
-
-            # Attach accuracy labels on top of bars
-            for bar in bars:
-                height = bar.get_height()
-                plt.annotate(f'{height:.2f}%',
-                             xy=(bar.get_x() + bar.get_width() / 2, height),
-                             xytext=(0, 3),  # 3 points vertical offset
-                             textcoords="offset points",
-                             ha='center', va='bottom')
-
-            plt.tight_layout()
-            if save_path:
-                plt.savefig(save_path)
-                logging.info(f"Saved accuracy plot to {save_path}")
-            plt.show()
-        except Exception as e:
-            logging.error(f"Failed to visualize accuracies: {e}", exc_info=True)
-            raise
-
-    def evaluate_models_sequential(
-        self,
-        qna_dataset: List[List[str]],
-        num_questions: int,
-        excel_file_path: str
-    ) -> Tuple[float, float]:
-        """
-        Sequentially evaluates both the RAG pipeline and the raw Gemini LLM on the Q&A dataset.
-
-        Args:
-            qna_dataset (List[List[str]]): List of Q&A entries as [question, choices, correct_answer].
-            num_questions (int): Number of questions to evaluate.
-            excel_file_path (str): Path to save the evaluation results Excel file.
-
-        Returns:
-            Tuple[float, float]: RAG pipeline accuracy and Gemini LLM accuracy.
-        """
-        selected_qna = random.sample(qna_dataset, min(num_questions, len(qna_dataset)))
-        results = []
-
-        for qna in tqdm(selected_qna, desc="Evaluating Q&A"):
-            try:
-                rag_correct, gemini_correct = self.evaluate_single_question(qna)
-                results.append({
-                    'Question': qna[0],
-                    'Choices': qna[1],
-                    'Correct Answer': qna[2],
-                    'RAG Answer Correct': rag_correct,
-                    'Gemini Answer Correct': gemini_correct
-                })
-            except Exception as e:
-                logging.error(f"Error evaluating question '{qna[0]}': {e}", exc_info=True)
-
-        # Save results to Excel
-        self.save_results_to_excel(results, excel_file_path)
-
-        # Calculate accuracies
-        rag_accuracy = (sum(1 for r in results if r['RAG Answer Correct']) / len(results)) * 100 if results else 0
-        gemini_accuracy = (sum(1 for r in results if r['Gemini Answer Correct']) / len(results)) * 100 if results else 0
-
-        return rag_accuracy, gemini_accuracy
+            logging.error(f"Failed to save plot: {e}", exc_info=True)
