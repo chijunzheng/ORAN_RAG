@@ -103,6 +103,8 @@ except Exception as e:
 
 @app.route('/')
 def home():
+    # Clear conversation history when the home page is accessed
+    session.pop('conversation_history', None)
     return render_template('index.html')
 
 @app.route('/ask', methods=['POST'])
