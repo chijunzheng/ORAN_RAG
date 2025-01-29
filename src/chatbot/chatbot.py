@@ -223,7 +223,10 @@ class Chatbot:
                 - **Do NOT** place references after individual bullets or sentences.
                 - **Do NOT** place references inline within paragraphs.
                 - Instead, gather all the references at the **end of the relevant heading** (## or ###) in **one combined block**.
-                - Format references in smaller font, using HTML `<small>` tags and indentation.
+                - Format references in smaller font, using HTML `<small>` tags and indentation. For example:
+                <small>
+                    &nbsp;&nbsp;*(Reference: [Document Name], page [Page Number(s)]; [Another Document], page [Page Number(s)])*
+                </small>
             </answer-format>
             <markdown-guidelines>
                 <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
@@ -300,7 +303,7 @@ class Chatbot:
             retrieved_chunks = self.vector_searcher.vector_search(
                 index_endpoint_display_name=self.index_endpoint_display_name,
                 deployed_index_id=self.deployed_index_id,
-                query_text=user_query,
+                query_text=f"User query: {user_query}\nCore concept: {core_concept}",
                 num_neighbors=self.num_neighbors
             )
             logging.info(f"Retrieved {len(retrieved_chunks)} chunks for the query.")
@@ -315,7 +318,7 @@ class Chatbot:
             #     pass `core_concept` instead of `user_query` below.
             # --------------------------------------------------------
             reranked_chunks = self.reranker.rerank(
-                query=core_concept,
+                query=f"User query: {user_query}\nCore concept: {core_concept}",
                 records=retrieved_chunks
             )
             logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
