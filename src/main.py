@@ -277,7 +277,7 @@ def main():
         for chunk in all_chunks:
             chunk_id = chunk['id'] if 'id' in chunk else str(uuid.uuid4())
             # Create a stable ID if not present
-            content = chunk.get('text') or chunk.get('content')  # PDF pipeline uses 'text', YANG pipeline uses 'text'
+            content = chunk.get('content', "")  
             if not content:
                 logging.warning("Chunk missing 'text' or 'content'; skipping.")
                 continue

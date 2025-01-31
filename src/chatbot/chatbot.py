@@ -108,22 +108,86 @@ class Chatbot:
             logging.error(f"Failed to load conversation history: {e}", exc_info=True)
             raise
 
-    # ---------------------------------------------------------
-    # 1) STEP-BACK METHOD: Identify the "Core ORAN Concept" 
-    # ---------------------------------------------------------
+    def force_yang_chunks_if_applicable(self, user_query: str) -> List[Dict]:
+        """
+        If user references '24A' or '24B' or 'yang', forcibly gather all YANG chunks from memory
+        that have matching vendor_package or doc_type=yang_model, so user sees them.
+        """
+        # naive detection
+        lower_q = user_query.lower()
+        is_yang_query = any(k in lower_q for k in ["yang", "24a", "24b", "samsung"])
+
+        if not is_yang_query:
+            return []
+
+        # We'll forcibly gather from self.vector_searcher.chunks
+        # That dictionary is chunk_id -> { 'id', 'content', 'metadata': {...} }
+        matched_chunks = []
+        for chunk_id, chunk_data in self.vector_searcher.chunks.items():
+            meta = chunk_data.get('metadata', {})
+            doc_type = meta.get('doc_type', 'unknown')
+            vendor_pkg = meta.get('vendor_package', 'unknown-package')
+
+            # If doc_type is 'yang_model'
+            if doc_type == 'yang_model':
+                # Optionally check vendor_package. E.g. if user specifically says "24A" or "24B"
+                # In real usage, you'd parse the query to see if it's "24A," "24B," or both.
+                # We'll do a simple approach:
+                if "24a" in lower_q and vendor_pkg.lower() == "24a":
+                    matched_chunks.append(self._convert_to_search_format(chunk_data))
+                elif "24b" in lower_q and vendor_pkg.lower() == "24b":
+                    matched_chunks.append(self._convert_to_search_format(chunk_data))
+                elif "yang" in lower_q and (vendor_pkg != 'unknown-package'):
+                    # or we can just add any YANG chunk if they said "yang"
+                    matched_chunks.append(self._convert_to_search_format(chunk_data))
+
+        return matched_chunks
+
+    def _convert_to_search_format(self, chunk_data: Dict) -> Dict:
+        """
+        The vector_search() returns a record format:
+        { 'id': ..., 'content': ..., 'document_name':..., 'page_number':..., 'distance': ...}
+        We want to produce a similar dict so we can pass it to reranker easily.
+        """
+        # We'll mimic the keys from the normal retrieval:
+        return {
+            'id': chunk_data['id'],
+            'content': chunk_data.get('content', "No content"),
+            'document_name': chunk_data.get('document_name', "Unknown doc"),
+            'page_number': chunk_data.get('page_number', "Unknown page"),
+            'metadata': chunk_data.get('metadata', {}),
+            # no 'distance' since these are forcibly added. The reranker will handle scoring
+        }
+    
+    # --------------------------------------------------------------------
+    # (A) Detect if user query might be about YANG
+    # --------------------------------------------------------------------
+    def detect_yang_references(self, user_query: str) -> str:
+        """
+        A small utility to see if the user query references something like 'YANG', '24A', '24B', 'samsung', etc.
+        If it does, we'll add some YANG-specific instructions in the final prompt.
+        """
+        lower_q = user_query.lower()
+        # For example, just do a naive check
+        if "yang" in lower_q or "24a" in lower_q or "24b" in lower_q or "samsung" in lower_q:
+            return (
+                "\n\n<yang-focus>\n"
+                "Additionally, the user is referencing YANG files and/or vendor versions (e.g., '24A', '24B').\n"
+                "Explain how these YANG model references differ or match up with O-RAN specs.\n"
+                "Include any vendor-specific details if retrieved from the YANG chunks.\n"
+                "</yang-focus>\n\n"
+            )
+        return ""
+
+    # -------------------------------------------------------------------
+    # 1) STEP-BACK METHOD: Identify the "Core ORAN Concept"
+    # -------------------------------------------------------------------
     def generate_core_concept(self, user_query: str, conversation_history: List[Dict]) -> str:
-        """
-        Calls the LLM to generate the core ORAN concept behind a query.
-        Minimal step-back approach: we feed the user_query (and optionally part of the conversation).
-        """
-        # You can optionally incorporate the last N conversation turns if you want
-        # context from the conversation. For brevity, we’ll just do the user query.
-        truncated_history = conversation_history[-3:]  # Last 3 turns, for example
+        truncated_history = conversation_history[-3:] 
         conversation_text = ""
         for turn in truncated_history:
             conversation_text += f"User: {turn['user']}\nAssistant: {turn['assistant']}\n"
 
-        # Create a simple prompt to instruct the model to identify the “core concept”
         prompt = f"""
         You are an O-RAN expert. Analyze the user's query below 
         and identify the single core concept needed to answer it.
@@ -144,11 +208,10 @@ class Chatbot:
             parts=[Part.from_text(prompt)]
         )
 
-        # OVERRIDE: Use lower randomness for concept extraction
         concept_generation_config = GenerationConfig(
-        temperature=0.0,   # or 0.1
-        top_p=1.0,         # no nucleus sampling
-        max_output_tokens=128 
+            temperature=0.0,
+            top_p=1.0,
+            max_output_tokens=128 
         )
 
         try:
@@ -157,100 +220,132 @@ class Chatbot:
                 generation_config=concept_generation_config,
             )
             core_concept = response.text.strip()
-            # Basic sanitization
             return core_concept if core_concept else "O-RAN Architecture (General)"
         except Exception as e:
             logging.error(f"Error generating core concept: {e}", exc_info=True)
-            # Return a fallback concept if generation fails
             return "O-RAN Architecture (General)"
 
-    # ---------------------------------------------------------
-    # 2) PROMPT BUILDING 
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------
+    # 2) PROMPT BUILDING: RETAIN your original large prompt for ORAN docs
+    #    Then add a YANG block if the user query references YANG
+    # -------------------------------------------------------------------
     def generate_prompt_content(self, query: str, concept: str, chunks: List[Dict], conversation_history: List[Dict]) -> Content:
         """
-        Generates the prompt content for the LLM using the core concept 
-        from the step-back prompting stage.
+        Builds the final user prompt. We now split out YANG chunks from the main doc chunks.
         """
+        # (1) Convert last 5 conversation turns into text (unchanged)
         history_text = ""
         for turn in conversation_history[-5:]:
             history_text += f"User: {turn['user']}\nAssistant: {turn['assistant']}\n"
         history_text += f"User: {query}\n"
 
-        context = "\n\n".join([
-            f"Chunk {i+1} ({chunk['document_name']}, Page {chunk['page_number']}):\n{chunk['content']}"
-            for i, chunk in enumerate(chunks)
+        # (2) Separate the chunks into two lists:
+        #     - ORAN doc chunks (or unknown doc_type)
+        #     - YANG doc chunks
+        oran_doc_chunks = []
+        yang_doc_chunks = []
+        for chunk in chunks:
+            meta = chunk.get('metadata', {})
+            doc_type = meta.get('doc_type', 'unknown')
+            if doc_type == 'yang_model':
+                yang_doc_chunks.append(chunk)
+            else:
+                oran_doc_chunks.append(chunk)
+
+        # (3) Build the main 'context' as before from the ORAN doc chunks
+        oran_context = "\n\n".join([
+            f"Chunk {i+1} (File: {chunk.get('document_name','N/A')}, Page: {chunk.get('page_number','N/A')}):\n{chunk.get('content','No content')}"
+            for i, chunk in enumerate(oran_doc_chunks)
         ])
 
-        # Note the insertion of the "Core Concept" in the prompt
-        prompt_text = f"""
-        <purpose>
-            You are an expert in O-RAN systems. Always start by focusing on the "core concept" below 
-            to keep the reasoning aligned. Then use conversation history and context 
-            (plus pre-trained knowledge if necessary) to provide an accurate answer.
-        </purpose>
+        # (4) Build a separate 'yang_context' from the YANG doc chunks
+        yang_context = "\n\n".join([
+            f"YANG Chunk {i+1} (Module: {chunk.get('metadata', {}).get('module','unknown')}, Version: {chunk.get('metadata',{}).get('version','?')}):\n{chunk.get('content','No content')}"
+            for i, chunk in enumerate(yang_doc_chunks)
+        ])
 
-        <core-concept>
-        {concept}
-        </core-concept>
+        # (5) Check if the user query references YANG
+        is_yang_query = self.detect_yang_references(query)
 
-        <instructions>
-            <instruction>Use the concept and the context to form a concise, thorough response.</instruction>
-            <instruction>Cover all relevant aspects in a clear, step-by-step manner.</instruction>
-            <instruction>Follow the specified answer format, headings, and style guides.</instruction>
-            <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
-        </instructions>
+        # (6) Insert the YANG context block if the user query references YANG or vendor versions
+        if is_yang_query and yang_context.strip():
+            # We'll place it in a <yang-context> block below
+            yang_context_block = f"""
+            <yang-context>
+            {yang_context}
+            </yang-context>
+            """
+        else:
+            yang_context_block = ""  # empty if no YANG reference
 
-        <context>
-        {context}
-        </context>
+            # (7) Build final prompt text EXACTLY as before, but now we have {yang_context_block} inserted
+            prompt_text = f"""
+            <purpose>
+                You are an expert in O-RAN systems. Always start by focusing on the "core concept" below 
+                to keep the reasoning aligned. Then use conversation history and the context 
+                (plus pre-trained knowledge if necessary) to provide an accurate answer.
+            </purpose>
 
-        <conversation-history>
-        {history_text}
-        </conversation-history>
+            <core-concept>
+            {concept}
+            </core-concept>
 
-        <question>
-        {query}
-        </question>
+            <instructions>
+                <instruction>Use the concept and the context to form a concise, thorough response.</instruction>
+                <instruction>Cover all relevant aspects in a clear, step-by-step manner.</instruction>
+                <instruction>Follow the specified answer format, headings, and style guides.</instruction>
+                <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
+            </instructions>
 
-        <sections>
-            <answer-format>
-                Begin with a brief introduction summarizing the entire answer.
-                Use high-level headings (##) and subheadings (###) to organize content.
-                Present information in bullet points or numbered lists to illustrate hierarchy.
+            <context>
+            {oran_context}
+            </context>
 
-                **References Rule**:
-                - **Do NOT** place references after individual bullets or sentences.
-                - **Do NOT** place references inline within paragraphs.
-                - Instead, gather all the references at the **end of the relevant heading** (## or ###) in **one combined block**.
-                - Format references in smaller font, using HTML `<small>` tags and indentation. For example:
-                <small>
-                    &nbsp;&nbsp;*(Reference: [Document Name], page [Page Number(s)]; [Another Document], page [Page Number(s)])*
-                </small>
-            </answer-format>
-            <markdown-guidelines>
-                <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
-                <markdown-guideline>Use bullet points ( - or * ) for sub-steps and indent consistently.</markdown-guideline>
-                <markdown-guideline>Use **bold** for emphasis and *italics* for subtle highlights.</markdown-guideline>
-                <markdown-guideline>For references, use HTML `<small>` tags to reduce font size and indent them using spaces.</markdown-guideline>
-            </markdown-guidelines>
-            <important-notes>
-                <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
-                <important-note>Be logical and concise, while providing as much detail as possible.</important-note>
-                <important-note>Ensure the explanation is presented step-by-step, covering relevant stages.</important-note>
-            </important-notes>
-            <audience>
-                Engineers new to O-RAN systems.
-            </audience>
-            <tone>
-                Professional and informative.
-            </tone>
-        </sections>
+            {yang_context_block}  <!-- ADDED for YANG specifically -->
 
-        <answer>
+            <conversation-history>
+            {history_text}
+            </conversation-history>
 
-        </answer>
-        """
+            <question>
+            {query}
+            </question>
+
+            <sections>
+                <answer-format>
+                    Begin with a brief introduction summarizing the entire answer.
+                    Use high-level headings (##) and subheadings (###) to organize content.
+                    Present information in bullet points or numbered lists to illustrate hierarchy.
+
+                    **References Rule**:
+                    - **Do NOT** place references after individual bullets or sentences.
+                    - **Do NOT** place references inline within paragraphs.
+                    - Instead, gather all the references at the **end of the relevant heading** (## or ###) in **one combined block**.
+                    - Format references in smaller font, using HTML `<small>` tags and indentation.
+                </answer-format>
+                <markdown-guidelines>
+                    <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
+                    <markdown-guideline>Use bullet points ( - or * ) for sub-steps and indent consistently.</markdown-guideline>
+                    <markdown-guideline>Use **bold** for emphasis and *italics* for subtle highlights.</markdown-guideline>
+                    <markdown-guideline>For references, use HTML `<small>` tags to reduce font size and indent them using spaces.</markdown-guideline>
+                </markdown-guidelines>
+                <important-notes>
+                    <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
+                    <important-note>Be logical and concise, while providing as much detail as possible.</important-note>
+                    <important-note>Ensure the explanation is presented step-by-step, covering relevant stages.</important-note>
+                </important-notes>
+                <audience>
+                    Engineers new to O-RAN systems.
+                </audience>
+                <tone>
+                    Professional and informative.
+                </tone>
+            </sections>
+
+            <answer>
+
+            </answer>
+            """
 
         user_prompt_content = Content(
             role="user",
@@ -258,13 +353,10 @@ class Chatbot:
         )
         return user_prompt_content
 
-    # ---------------------------------------------------------
-    # 3) FINAL RESPONSE
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------
+    # 3) Response Generation
+    # -------------------------------------------------------------------
     def generate_response(self, prompt_content: Content) -> str:
-        """
-        Generates a response from the generative model.
-        """
         try:
             response = self.generative_model.generate_content(
                 prompt_content,
@@ -272,11 +364,10 @@ class Chatbot:
             )
             assistant_response = response.text.strip()
 
-            # Remove any wrapping code blocks from the response
+            # Remove code blocks if present
             if assistant_response.startswith("```") and assistant_response.endswith("```"):
                 lines = assistant_response.split("\n")
                 if len(lines) >= 3:
-                    # Remove the first and last lines (```)
                     assistant_response = "\n".join(lines[1:-1])
             
             logging.debug("Generated assistant response.")
@@ -285,51 +376,51 @@ class Chatbot:
             logging.error(f"Error generating response: {e}", exc_info=True)
             return "I'm sorry, I encountered an error while processing your request."
 
+    # -------------------------------------------------------------------
+    # 4) get_response 
+    # -------------------------------------------------------------------
     def get_response(self, user_query: str, conversation_history: List[Dict]) -> str:
-        """
-        Processes the user query along with conversation history and returns the chatbot response
-        with Step-Back Prompting integrated.
-        """
         try:
-            # --------------------------------------------------------
-            # (A) STEP-BACK: Identify the core concept
-            # --------------------------------------------------------
+            # (A) STEP-BACK concept
             core_concept = self.generate_core_concept(user_query, conversation_history)
             logging.info(f"Step-Back concept extracted: {core_concept}")
 
-            # --------------------------------------------------------
-            # (B) Retrieve relevant chunks using vector search
-            # --------------------------------------------------------
+            # (B) Main vector search
+            combined_query = f"User query: {user_query}\nCore concept: {core_concept}"
             retrieved_chunks = self.vector_searcher.vector_search(
                 index_endpoint_display_name=self.index_endpoint_display_name,
                 deployed_index_id=self.deployed_index_id,
-                query_text=f"User query: {user_query}\nCore concept: {core_concept}",
+                query_text=combined_query,
                 num_neighbors=self.num_neighbors
             )
             logging.info(f"Retrieved {len(retrieved_chunks)} chunks for the query.")
 
+            # (C) If user references YANG or '24A'/'24B', forcibly add any chunk with doc_type='yang_model' + matching vendor_package
+            forced_yang_chunks = self.force_yang_chunks_if_applicable(user_query)
+            if forced_yang_chunks:
+                logging.info(f"Manually adding {len(forced_yang_chunks)} YANG chunks due to query references.")
+                # Merge them with the normal vector results
+                # Avoid duplicates by checking chunk IDs
+                existing_ids = {c['id'] for c in retrieved_chunks}
+                for fc in forced_yang_chunks:
+                    if fc['id'] not in existing_ids:
+                        retrieved_chunks.append(fc)
+
             if not retrieved_chunks:
-                logging.warning("No chunks retrieved for the query.")
+                logging.warning("No chunks retrieved (or forced) for the query.")
                 return "I'm sorry, I couldn't find relevant information to answer your question."
 
-            # --------------------------------------------------------
-            # (C) Rerank the retrieved chunks
-            #     (Optional) If you want to rerank with the concept, 
-            #     pass `core_concept` instead of `user_query` below.
-            # --------------------------------------------------------
+            # (D) Rerank the combined set
             reranked_chunks = self.reranker.rerank(
-                query=f"User query: {user_query}\nCore concept: {core_concept}",
+                query=combined_query,
                 records=retrieved_chunks
             )
             logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
-
             if not reranked_chunks:
                 logging.warning("Reranking returned no results.")
                 return "I'm sorry, I couldn't find relevant information after reranking."
 
-            # --------------------------------------------------------
-            # (D) Generate final prompt with concept + reranked chunks
-            # --------------------------------------------------------
+            # (E) Build final prompt
             prompt_content = self.generate_prompt_content(
                 query=user_query,
                 concept=core_concept,
@@ -337,11 +428,8 @@ class Chatbot:
                 conversation_history=conversation_history
             )
 
-            # --------------------------------------------------------
-            # (E) Generate the final LLM response
-            # --------------------------------------------------------
+            # (F) Generate final LLM response
             assistant_response = self.generate_response(prompt_content)
-
             return assistant_response.strip() if assistant_response else "I'm sorry, I couldn't generate a response."
 
         except Exception as e:

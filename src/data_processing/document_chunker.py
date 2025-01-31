@@ -122,7 +122,16 @@ class DocumentChunker:
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
                 for chunk in chunks:
-                    json_record = json.dumps(chunk)
+                    # Build a record that includes metadata
+                    line_dict = {
+                        'id': chunk.get('id'),
+                        'content': chunk.get('content', ""),
+                        'document_name': chunk.get('document_name'),
+                        'page_number': chunk.get('page_number'),
+                        'char_count': chunk.get('char_count'),
+                        'metadata': chunk.get('metadata', {})  # Preserve all chunk-specific metadata
+                    }
+                    json_record = json.dumps(line_dict, ensure_ascii=False)
                     f.write(json_record + '\n')
             logging.info(f"Chunk data with IDs and metadata saved to {file_path}")
         except Exception as e:
