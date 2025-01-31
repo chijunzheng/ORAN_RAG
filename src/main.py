@@ -5,6 +5,7 @@ import argparse
 import logging
 import sys
 import json
+import uuid
 from google.cloud import storage
 
 # Add the project root to sys.path
@@ -25,6 +26,8 @@ from src.vector_search.searcher import VectorSearcher
 from src.chatbot.chatbot import Chatbot
 from src.evaluation.evaluator import Evaluator
 from src.vector_search.reranker import Reranker
+from src.yang_pipeline import process_yang_dir
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -176,10 +179,10 @@ def main():
         logging.error(f"Failed to initialize Reranker: {e}")
         sys.exit(1)
 
-    # 1. Preprocessing Stage
+    # 1. Preprocessing Stage (ORAN + YANG)
     if not skip_preprocessing:
         logging.info("Starting preprocessing stages.")
-        # Perform Preprocessing
+        # Perform ORAN PDF-based Preprocessing
         converter = DocumentConverter(directory_path=config['paths']['documents'])
         try:
             converter.convert_docx_to_pdf()
@@ -206,8 +209,8 @@ def main():
             logging.error(f"Text formatting failed: {e}")
             sys.exit(1)
 
-        # Split into Chunks
-        chunker = DocumentChunker(
+        # Chunk pdf docs
+        pdf_chunker = DocumentChunker(
             chunk_size=chunking_config['chunk_size'],
             chunk_overlap=chunking_config['chunk_overlap'],
             separators=chunking_config['separators'],
@@ -217,32 +220,48 @@ def main():
             min_char_count=chunking_config['min_char_count']
         )
         try:
-            chunks_with_ids = chunker.split_documents(all_cleaned_documents)
-            logging.info(f"Split documents into {len(chunks_with_ids)} chunks.")
+            pdf_chunks_with_ids = pdf_chunker.split_documents(all_cleaned_documents)
+            logging.info(f"Split documents into {len(pdf_chunks_with_ids)} chunks.")
         except Exception as e:
             logging.error(f"Document chunking failed: {e}")
             sys.exit(1)
 
-        # Define the chunks file path from config
+        # Process YANG files
+        yang_dir = paths_config.get('yang_dir')
+        yang_chunks = []
+        if yang_dir and os.path.isdir(yang_dir):
+            try:
+                yang_chunks = process_yang_dir(yang_dir)
+                logging.info(f"Ingested {len(yang_chunks)} YANG chunks from '{yang_dir}'. ")
+            except Exception as e:
+                logging.error(f"Failed to process YANG directory '{yang_dir}': {e}", exc_info=True)
+                sys.exit(1)
+        else:
+            logging.info("No YANG directory found or 'yang_dir' not set in config.")
+
+
+        # Combine all chunks
+        all_chunks = pdf_chunks_with_ids + yang_chunks
+        
+        # Save combined chunks to JSON
+        chunker_for_saving = DocumentChunker()
         chunks_file = os.path.join(config['paths']['embeddings_save_path'], 'chunks.json')
-        
-        # Save chunks to JSON Lines file
         try:
-            chunker.save_chunks_to_json(chunks_with_ids, file_path=chunks_file)
-            logging.info(f"Saved chunks to {chunks_file}")
+            chunker_for_saving.save_chunks_to_json(all_chunks, file_path=chunks_file)
+            logging.info(f"Saved combined PDF + YANG chunks to {chunks_file}")
         except Exception as e:
-            logging.error(f"Failed to save chunks: {e}")
-            sys.exit(1)
-        
-        # Upload chunks to GCS
-        try:
-            chunker.upload_to_gcs(file_path=chunks_file, overwrite=True)
-            logging.info("Uploaded chunks to GCS.")
-        except Exception as e:
-            logging.error(f"Failed to upload chunks to GCS: {e}")
+            logging.error(f"Failed to save combined chunks: {e}")
             sys.exit(1)
 
-        # Initialize Embedder
+        # Upload combined chunks to GCS
+        try:
+            pdf_chunker.upload_to_gcs(file_path=chunks_file, overwrite=True)
+            logging.info("Uploaded combined chunks.json to GCS.")
+        except Exception as e:
+            logging.error(f"Failed to upload combined chunks to GCS: {e}")
+            sys.exit(1)
+
+        # 2C) Embedding
         embedder = Embedder(
             project_id=gcp_config['project_id'],
             location=gcp_config['location'],
@@ -250,16 +269,35 @@ def main():
             embeddings_path=gcp_config['embeddings_path'],
             credentials=auth_manager.credentials
         )
-        # Generate and Upload Embeddings
+
+        # The embedder expects a list of dicts with minimal keys like { 'id':..., 'content':... }
+        # We might rename 'text' or unify the key.
+        # So let's unify them:
+        embed_ready_chunks = []
+        for chunk in all_chunks:
+            chunk_id = chunk['id'] if 'id' in chunk else str(uuid.uuid4())
+            # Create a stable ID if not present
+            content = chunk.get('text') or chunk.get('content')  # PDF pipeline uses 'text', YANG pipeline uses 'text'
+            if not content:
+                logging.warning("Chunk missing 'text' or 'content'; skipping.")
+                continue
+            embed_ready_chunks.append({
+                'id': chunk_id,
+                'content': content
+            })
+
+        # Generate embeddings and store
+        local_embeddings_file = os.path.join(config['paths']['embeddings_save_path'], 'combined_embeddings.jsonl')
         try:
-            embeddings_file = os.path.join(config['paths']['embeddings_save_path'], 'embeddings.json')
-            embedder.generate_and_store_embeddings(chunks_with_ids, local_jsonl_path=embeddings_file)
-            logging.info(f"Embeddings generated and saved to {embeddings_file}")
+            embedder.generate_and_store_embeddings(embed_ready_chunks, local_jsonl_path=local_embeddings_file, batch_size=10)
+            logging.info(f"Embeddings generated and stored at {local_embeddings_file}")
         except Exception as e:
-            logging.error(f"Embeddings generation failed: {e}")
+            logging.error(f"Embedding generation failed: {e}")
             sys.exit(1)
+
     else:
-        logging.info("Skipping preprocessing stages: document conversion, loading PDFs, text formatting, chunking, and embedding.")
+        logging.info("Skipping preprocessing stages: PDF & YANG ingestion, chunking, embedding...")
+
 
     # 2. Index Creation Stage
     index = None

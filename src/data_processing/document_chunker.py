@@ -2,6 +2,7 @@
 
 import logging
 import json
+import uuid
 from typing import List, Dict
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
@@ -75,42 +76,38 @@ class DocumentChunker:
     
     def assign_ids(self, split_docs: List[Document]) -> List[Dict]:
         """
-        Assigns unique IDs to each chunk, calculates character count, and filters based on the character threshold.
-        
+        Assigns a UUID to each chunk, calculates character count,
+        and filters out chunks below min_char_count.
+
         Args:
             split_docs (List[Document]): List of Document chunks.
-        
+
         Returns:
-            List[Dict]: List of dictionaries with chunk details and unique IDs.
+            List[Dict]: List of chunk dicts with a 'uuid' and chunk details.
         """
-        logging.info("Assigning unique IDs and calculating character counts for each chunk.")
+        logging.info("Assigning UUIDs and filtering chunks based on character count.")
         chunks_with_ids = []
-        for i, doc in enumerate(split_docs):
-            document_name = doc.metadata.get('document_name')
-            page_number = doc.metadata.get('page_number')
-            
+        for doc in split_docs:
             # Calculate character count
             char_count = len(doc.page_content)
-            
-            # Skip chunks below the character threshold
             if char_count < self.min_char_count:
-                logging.debug(f"Skipped chunk_{i} due to low character count: {char_count} characters.")
+                logging.debug(f"Skipped chunk due to low character count: {char_count} < {self.min_char_count}.")
                 continue
-            
-            chunk_id = f"chunk_{i}"
-            
-            # Log the metadata for each chunk
-            logging.debug(f"Chunk ID: {chunk_id}, Document: {document_name}, Page Number: {page_number}, Char Count: {char_count}")
-            
-            chunk = {
-                'id': chunk_id,
-                'content': doc.page_content,
+
+            chunk_uuid = str(uuid.uuid4())
+            document_name = doc.metadata.get('document_name')
+            page_number = doc.metadata.get('page_number')
+
+            chunk_dict = {
+                'id': chunk_uuid,            # <--- Unique UUID
+                'content': doc.page_content, # The chunk text
                 'document_name': document_name,
                 'page_number': page_number,
-                'char_count': char_count  # Added char_count
+                'char_count': char_count
             }
-            chunks_with_ids.append(chunk)
-        logging.info("Completed assigning IDs and filtering chunks based on character count.")
+            chunks_with_ids.append(chunk_dict)
+
+        logging.info("Completed assigning UUIDs and filtering chunks.")
         return chunks_with_ids
     
     def save_chunks_to_json(self, chunks: List[Dict], file_path: str = "chunks.json"):
