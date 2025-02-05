@@ -33,12 +33,12 @@ vector_search:
   max_replica_count: 2
 
   # Parameters for search
-  num_neighbors: 100
+  num_neighbors: 40
 
 ranking:
   ranking_config: "default_ranking_config"  
   model: "semantic-ranker-512@latest" 
-  rerank_top_n: 60
+  rerank_top_n: 20
 
 chunking:
   chunk_size: 1536  # Maximum number of characters per chunk
@@ -49,7 +49,7 @@ chunking:
 generation:
   temperature: 0.3
   top_p: 0.9
-  max_output_tokens: 5000
+  max_output_tokens: 8192
 
 logging:
   log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/log/oran_rag.log"  # User-defined path for log files

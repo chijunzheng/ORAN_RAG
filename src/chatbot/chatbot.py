@@ -466,9 +466,103 @@ class Chatbot:
             logging.error(f"Error comparing file '{file_name}' for {vendor1} vs {vendor2}: {e}", exc_info=True)
             return f"I'm sorry, an error occurred comparing '{file_name}' for {vendor1} vs {vendor2}."
 
+
+    def list_modified_yang_files(self, vendor1: str, vendor2: str) -> str:
+        """
+        Returns a list of YANG files that appear to have different revisions or a different 
+        chunk count between vendor1 and vendor2. This is a simpler approach than 
+        comparing actual content. 
+        """
+
+        # 1) Retrieve chunks for each vendor
+        vendor1_chunks = self.retrieve_yang_chunks_by_vendor(vendor1)
+        vendor2_chunks = self.retrieve_yang_chunks_by_vendor(vendor2)
+
+        # 2) Group by file_name
+        v1_files_map = {}  # {file_name -> dict with 'max_revision', 'chunk_count', 'any metadata you want'}
+        for c in vendor1_chunks:
+            meta = c.get("metadata", {})
+            fname = meta.get("file_name", "unknown")
+            rev   = meta.get("revision", "unknown")
+            # We can track the "max" revision lexicographically or store them all. 
+            # For demonstration, just store the first non-unknown we see.
+            if fname not in v1_files_map:
+                v1_files_map[fname] = {
+                    "file_name": fname,
+                    "revisions": set(),
+                    "chunk_count": 0
+                }
+            v1_files_map[fname]["revisions"].add(rev)
+            v1_files_map[fname]["chunk_count"] += 1
+
+        v2_files_map = {}
+        for c in vendor2_chunks:
+            meta = c.get("metadata", {})
+            fname = meta.get("file_name", "unknown")
+            rev   = meta.get("revision", "unknown")
+            if fname not in v2_files_map:
+                v2_files_map[fname] = {
+                    "file_name": fname,
+                    "revisions": set(),
+                    "chunk_count": 0
+                }
+            v2_files_map[fname]["revisions"].add(rev)
+            v2_files_map[fname]["chunk_count"] += 1
+
+        # 3) Compare
+        modified_files = []
+        # We’ll consider all file names that appear in either vendor’s list
+        all_fnames = set(list(v1_files_map.keys()) + list(v2_files_map.keys()))
+
+        for fname in sorted(all_fnames):
+            v1_info = v1_files_map.get(fname)
+            v2_info = v2_files_map.get(fname)
+            if not v1_info or not v2_info:
+                # If a file only exists in one vendor, we can call that "modified" or "added/removed".
+                modified_files.append(fname)
+                continue
+
+            # Compare revisions as sets
+            if v1_info["revisions"] != v2_info["revisions"]:
+                modified_files.append(fname)
+                continue
+
+            # Compare chunk counts
+            if v1_info["chunk_count"] != v2_info["chunk_count"]:
+                modified_files.append(fname)
+                continue
+
+            # Potentially compare other metadata (like total size, earliest revision date, etc.)
+
+        if not modified_files:
+            return (
+                f"From metadata alone, it appears that no YANG files differ between vendor {vendor1} and {vendor2}."
+            )
+
+        # Build final output
+        lines = [
+            f"## YANG Files Modified Between Vendor {vendor1} and {vendor2}",
+            "Based on the provided context, the following files show differences:"
+        ]
+        for f in modified_files:
+            lines.append(f"- {f}")
+        return "\n".join(lines)
+
     # --------------------------------------------------------
     # Additional Query Handling & LLM Flow
-    # --------------------------------------------------------    
+    # --------------------------------------------------------  
+
+    def is_yang_modified_files_query(self, query: str) -> bool:
+        """
+        Returns True if the query looks like a request for "which files were modified" 
+        between 24A and 24B. Example triggers: 'which of the yang model files was modified', 
+        'which yang files changed', etc., plus '24a' and '24b'.
+        """
+        lower = query.lower()
+        if "modified" in lower or "changed" in lower:
+            if "yang" in lower or ("24a" in lower and "24b" in lower):
+                return True
+        return False  
     
     def is_yang_listing_query(self, query: str) -> bool:
         lower = query.lower()
@@ -642,7 +736,7 @@ class Chatbot:
         # (6) Build the final prompt text with the reference rules intact.
         prompt_text = f"""
             <purpose>
-                You are an expert in O-RAN systems and YANG models. Always start by focusing on the "core concept" below 
+                You are an expert in O-RAN systems. Always start by focusing on the "core concept" below 
                 to keep the reasoning aligned. Then use conversation history and the context 
                 (plus pre-trained knowledge if necessary) to provide an accurate answer.
             </purpose>
@@ -657,7 +751,6 @@ class Chatbot:
                 <instruction>Follow the specified answer format, headings, and style guides.</instruction>
                 <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
                 <instruction>Ensure that metadata (document name, version, workgroup, subcategory, page number) is referenced for ORAN documents.</instruction>
-                <instruction>For YANG queries, analyze the reassembled full files provided in the <yang-context> block.</instruction>
             </instructions>
 
             <context>
@@ -680,14 +773,9 @@ class Chatbot:
                     **Reference Rules**:
                     - Do NOT include references after each bullet or sentence.
                     - Instead, gather all module references at the end of the relevant section in one combined block.
-                    - For "yang-context" or "yang_inventory_block", follow the reference rule: *Reference:()
                     - Format references in smaller font, using HTML `<small>` tags and indentation. For oran_context, use the following format:
                             <small>
                                 &nbsp;&nbsp;*(Reference: [Document Name], page [Page Number(s)]; [Another Document], page [Page Number(s)])*
-                            </small>
-                    - For yang-context, use the following format:
-                            <small>
-                                &nbsp;&nbsp;*(Reference: [file_name], [vendor_package]; [another file_name], [vendor_package])*
                             </small>
                 </answer-format>
                 <markdown-guidelines>
@@ -892,7 +980,15 @@ class Chatbot:
                         report_lines.append("- No YANG models found.")
                 return "\n".join(report_lines)
 
-            # 2) YANG vendor package comparison (broad, or file-specific)
+            # 2) YANG "which files changed/modified" check
+            if self.is_yang_modified_files_query(user_query):
+                # If user specifically says "which files were modified between 24A and 24B"
+                vendors = self.extract_vendor_package_from_query(user_query)
+                if len(vendors) < 2:
+                    return "Both vendor packages must be specified to list modified files."
+                return self.list_modified_yang_files(vendors[0], vendors[1])
+            
+            # 3) YANG vendor package comparison (broad, or file-specific)
             if self.is_yang_comparison_query(user_query):
                 # Check if there's a file name in the query
                 file_specific = self.detect_file_specific_query(user_query)
@@ -906,8 +1002,7 @@ class Chatbot:
                     return "Both vendor packages (e.g. 24A and 24B) must be specified for comparison."
                 return self.compare_vendor_packages(vendors[0], vendors[1], conversation_history)
 
-            # 3) Check for file-specific .yang query
-            core_concept = self.generate_core_concept(user_query, conversation_history)
+            # 4) Check for file-specific .yang query
             file_specific = self.detect_file_specific_query(user_query)
             if file_specific:
                 return self.handle_file_specific_query(
@@ -917,6 +1012,7 @@ class Chatbot:
                 )
 
             # 4) Otherwise, fallback to vector search + re-ranking
+            core_concept = self.generate_core_concept(user_query, conversation_history)
             combined_query = f"User query: {user_query}\nCore concept: {core_concept}"
             retrieved_chunks = self.vector_searcher.vector_search(
                 index_endpoint_display_name=self.index_endpoint_display_name,
