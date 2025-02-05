@@ -10,7 +10,7 @@ gcp:
 paths:
   documents: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Documents"
   embeddings_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Embeddings"
-  yang_dir: /Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Yang
+  yang_dir: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Yang"
 
 vector_search:
   index_display_name: "oran_rag_index_yang"  # Name for the index creation
@@ -33,12 +33,12 @@ vector_search:
   max_replica_count: 2
 
   # Parameters for search
-  num_neighbors: 30
+  num_neighbors: 100
 
 ranking:
   ranking_config: "default_ranking_config"  
   model: "semantic-ranker-512@latest" 
-  rerank_top_n: 20
+  rerank_top_n: 60
 
 chunking:
   chunk_size: 1536  # Maximum number of characters per chunk
@@ -49,7 +49,7 @@ chunking:
 generation:
   temperature: 0.3
   top_p: 0.9
-  max_output_tokens: 2000
+  max_output_tokens: 5000
 
 logging:
   log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/log/oran_rag.log"  # User-defined path for log files
