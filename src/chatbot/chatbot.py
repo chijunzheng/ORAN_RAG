@@ -909,36 +909,35 @@ class Chatbot:
         file_data = reassembled_files[norm_file]
         file_text = file_data['full_text']
         prompt_text = f"""
-            You are an advanced YANG model specialist. Provide a thorough explanation of the YANG file '{file_specific}' 
-            based on the provided contents. Your explanation must include:
+            You are an advanced YANG model specialist. Provide a concise, high-level explanation of the YANG file '{file_specific}' based on the provided contents. Your explanation should focus on summarizing the overall logical and hierarchical data structure of the module rather than describing every single element in detail.
+
+            Your explanation must include:
+
+            ## Overview and Purpose
+            - Summarize the module’s intended role in network management or O-RAN contexts.
+            - Explain how the file integrates with or depends on other modules.
+
+            ## Module-Level Details
+            - Provide key metadata such as the module name, prefix, namespace, and revision history (with dates and brief descriptions).
+
+            ## Data Structure Summary
+            - Present a high-level overview of the data structures in the file.  
+            - Instead of listing every typedef, grouping, container or element, group similar structures together. For example, if the file defines numerous containers for uplink configurations, summarize them as "multiple containers managing uplink configurations" rather than listing each one.
+            - Describe the major groupings, containers, and typedefs and emphasize the logical, hierarchical relationships (e.g., "Grouping A contains Container B, which in turn defines critical leaves" or "Container X nests a grouping that organizes Y data").
+            - Focus on what differentiates the major sections and their roles rather than repeating similar items.
+
+            ## Imports and References 
+            - Briefly indicate which external YANG modules are imported or referenced, and explain their significance.
+
+            ## Usage and Implications
+            - Outline how a network operator or developer might use this module in practice.
+            - Mention notable use cases or deployment scenarios in an O-RAN architecture.
+
+            ## Conclusion  
+            - Offer a concise summary highlighting the key takeaways and the overall significance of the file.
 
             <answer-format>
-            Structure your answer with high-level headings (##) and subheadings (###). Present information in bullet points or numbered lists.
-
-            **Overview and Purpose**  
-            - The module’s intended role in network management or O-RAN contexts.
-            - How this file integrates with or depends on other modules.
-
-            **Module-Level Details**  
-            - Module name, prefix, namespace.
-            - Any 'organization', 'contact', or 'description' statements.
-            - Revision history (including revision dates and short descriptions).
-
-            **Data Structures**  
-            - Concise high level summaries of the typedef, grouping, container, list, leaf based on the description in each section.
-            - Demonstrate and explain how these structures relate to one another and to the module’s overall purpose.
-
-            **Imports and References**  
-            - Which external YANG modules are imported or referenced, and why.
-            - Any relevant RFC or O-RAN specification references within the file.
-
-            **Usage and Implications**  
-            - How a network operator or developer might configure or query devices with this module.
-            - Notable use cases or deployment scenarios in an O-RAN architecture.
-
-            **Conclusion**  
-            - A concise summary highlighting key takeaways and the file’s significance.
-
+            Structure your answer using high-level headings (##) and subheadings (###). Use bullet points or numbered lists to outline your explanation. Focus on the overarching hierarchy and relationships of the data structures, rather than listing every detailed element.
             </answer-format>
 
             <markdown-guidelines>
@@ -947,8 +946,8 @@ class Chatbot:
             </markdown-guidelines>
 
             <important-notes>
-                    <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
-                    <important-note>Ensure the explanation is presented step-by-step, covering relevant stages.</important-note>
+                <important-note>Focus on delivering a strategic, high-level overview of the module's data structure and its hierarchical relationships.</important-note>
+                <important-note>Avoid enumerating every low-level detail; instead, emphasize the architecture and key relationships (e.g., grouping/container/leaf) that define the file.</important-note>
             </important-notes>
 
             ## File Content
@@ -965,7 +964,7 @@ class Chatbot:
             # 4) Directly call LLM, no reranking or big comparison logic
             response = self.generative_model.generate_content(
                 prompt_content, 
-                generation_config=self.generation_config
+                generation_config=self.yang_generation_config
             )
             return response.text.strip() if response else "No response generated."
         except Exception as e:
