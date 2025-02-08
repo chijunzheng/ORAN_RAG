@@ -15,6 +15,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from src.evaluation.evaluator import Evaluator
 from src.vector_search.reranker import Reranker
 
+# ----------------------------------------------------------------------------------
+# Constants and Helper
+# ----------------------------------------------------------------------------------
 
 SAFE_SUMMARY_TOKEN_LIMIT = 1_000_000
 # We will do the first summarization pass in ~15k-token chunks, 
@@ -34,7 +37,11 @@ def count_tokens(text: str) -> int:
         return len(encoding.encode(text))
     else:
         return len(text.split())
-    
+
+# ----------------------------------------------------------------------------------
+# Chatbot Class
+# ----------------------------------------------------------------------------------
+
 class Chatbot:
     def __init__(
         self,
@@ -91,6 +98,12 @@ class Chatbot:
                 max_output_tokens=generation_max_output_tokens,
             )
 
+            self.yang_generation_config = GenerationConfig(
+                temperature=0,
+                top_p=1,
+                max_output_tokens=generation_max_output_tokens,
+            )
+
         except KeyError as ke:
             logging.error(f"Missing configuration key: {ke}", exc_info=True)
             raise
@@ -98,6 +111,9 @@ class Chatbot:
             logging.error(f"Failed to initialize Chatbot: {e}", exc_info=True)
             raise
 
+    # ----------------------------------------------------------------------------------
+    # Conversation Management
+    # ----------------------------------------------------------------------------------
     def generate_session_id(self) -> str:
         """Generates a unique session ID."""
         return str(uuid.uuid4())
@@ -290,10 +306,6 @@ class Chatbot:
             }
         return reassembled
 
-
-
-
-    # --- Retrieval Shortcut for File-Specific Queries ---
     def retrieve_file_chunks(self, file_name_query: str) -> List[Dict]:
         """
         Directly retrieves all chunks for a specific YANG file by filtering on the file_name metadata.
@@ -305,10 +317,62 @@ class Chatbot:
         logging.info(f"Directly retrieved {len(filtered)} chunks for file query '{file_name_query}'.")
         return filtered
     
+    def extract_vendor_package_from_query(self, query: str) -> List[str]:
+        """
+        Extracts vendor package identifiers (e.g., "24A" or "24B") from the query.
+        """
+        targets = []
+        lower = query.lower()
+        if "24a" in lower:
+            targets.append("24A")
+        if "24b" in lower:
+            targets.append("24B")
+        return targets
 
+    def handle_yang_inventory_listing(self, vendors: List[str]) -> str:
+        """
+        For each vendor in 'vendors', retrieve all YANG chunks and list out the module names + file names.
+        Returns a markdown or text-based report of what's in each vendor's YANG inventory.
+        """
+        inventory_results = {}
+        for vendor in vendors:
+            chunks = self.retrieve_yang_chunks_by_vendor(vendor)
+            unique_modules = {}
+            for chunk in chunks:
+                metadata = chunk.get("metadata", {})
+                module_name = metadata.get("module", "unknown")
+                file_name = metadata.get("file_name", "unknown")
+                unique_modules[module_name] = file_name
+            inventory_results[vendor] = unique_modules
+
+        # Build a text response
+        report_lines = ["## Vendor Package YANG Model Inventory"]
+        for vendor in vendors:
+            report_lines.append(f"### Vendor Package {vendor}")
+            modules = inventory_results[vendor]
+            if modules:
+                for module_name, file_name in sorted(modules.items()):
+                    report_lines.append(f"- {module_name} (File: {file_name})")
+            else:
+                report_lines.append("- No YANG models found.")
+        return "\n".join(report_lines)
+    
     # --------------------------------------------------------
     # Vendor Comparison
     # --------------------------------------------------------    
+   
+    def retrieve_yang_chunks_by_vendor(self, vendor: str) -> List[Dict]:
+        """
+        Retrieves YANG chunks from memory whose metadata 'vendor_package' matches vendor, e.g., "24A".
+        """
+        all_chunks = list(self.vector_searcher.chunks.values())
+        filtered = [
+            chunk for chunk in all_chunks 
+            if chunk.get("metadata", {}).get("vendor_package", "").upper() == vendor.upper()
+        ]
+        logging.info(f"Retrieved {len(filtered)} YANG chunks for vendor package '{vendor}'.")
+        return filtered
+    
     def compare_vendor_packages(self, vendor1: str, vendor2: str, conversation_history: List[Dict]) -> str:
         """
         Compare all YANG models from vendor1 vs vendor2, summarizing large text so
@@ -381,46 +445,6 @@ class Chatbot:
             return "I'm sorry, an error occurred while comparing vendor packages."
     
   
-    def retrieve_yang_chunks_by_vendor(self, vendor: str) -> List[Dict]:
-        """
-        Retrieves YANG chunks from memory whose metadata 'vendor_package' matches vendor, e.g., "24A".
-        """
-        all_chunks = list(self.vector_searcher.chunks.values())
-        filtered = [
-            chunk for chunk in all_chunks 
-            if chunk.get("metadata", {}).get("vendor_package", "").upper() == vendor.upper()
-        ]
-        logging.info(f"Retrieved {len(filtered)} YANG chunks for vendor package '{vendor}'.")
-        return filtered
-
-    def handle_yang_inventory_listing(self, vendors: List[str]) -> str:
-        """
-        For each vendor in 'vendors', retrieve all YANG chunks and list out the module names + file names.
-        Returns a markdown or text-based report of what's in each vendor's YANG inventory.
-        """
-        inventory_results = {}
-        for vendor in vendors:
-            chunks = self.retrieve_yang_chunks_by_vendor(vendor)
-            unique_modules = {}
-            for chunk in chunks:
-                metadata = chunk.get("metadata", {})
-                module_name = metadata.get("module", "unknown")
-                file_name = metadata.get("file_name", "unknown")
-                unique_modules[module_name] = file_name
-            inventory_results[vendor] = unique_modules
-
-        # Build a text response
-        report_lines = ["## Vendor Package YANG Model Inventory"]
-        for vendor in vendors:
-            report_lines.append(f"### Vendor Package {vendor}")
-            modules = inventory_results[vendor]
-            if modules:
-                for module_name, file_name in sorted(modules.items()):
-                    report_lines.append(f"- {module_name} (File: {file_name})")
-            else:
-                report_lines.append("- No YANG models found.")
-        return "\n".join(report_lines)
-
     def list_modified_yang_files(self, vendor1: str, vendor2: str) -> str:
         """
         Returns a list of YANG files that appear to have different revisions or a different 
@@ -549,7 +573,7 @@ class Chatbot:
 
             # 7) Build final comparison prompt
             compare_prompt = f"""
-            You are a YANG expert. Help to compare the file '{file_name}' between vendor {vendor1} and vendor {vendor2}.
+            You are a YANG expert. Your task is to perform a detailed, line-by-line comparison between the file '{file_name}' from vendor {vendor1} and vendor {vendor2}. Your analysis must be both high-level and granular, reflecting the logical and hierarchical structure of the YANG modules.
 
             ### Vendor Package {vendor1} version of {file_name}:
             {vendor1_summary}
@@ -558,13 +582,37 @@ class Chatbot:
             {vendor2_summary}
 
             <Instructions>
-            - Summarize additions, removals, or modifications.
-            - Compare and list the differences in data definitions, groupings, containers, or any revised statements. 
-            - Identify all possible structural differences (groupings, containers, leaves, actions, etc.). Note changes in data definitions, naming, or any re-labeled elements.
+            - First, provide an overall high-level summary of the differences between the two files. 
+            - Highlight the major additions, removals, or modifications, and mention any improvements or regressions.
+            - Then, perform a detailed, hierarchical, line-by-line analysis. For every detected change, indicate its precise logical location using the structure path. Use the format “grouping/container/leaf” or the appropriate combination (for example, “grouping/container”, or “container/leaf”, or “grouping/leaf”) to pinpoint the change.
+            - Only highlight functional changes that are significant and relevant to the comparison. Avoid listing every minor differences such as description changes.
+            - Organize your answer by first summarizing module-level differences, then breaking down the differences into hierarchical sections that reflect the YANG structure.
+            - Do not list every low-level leaf difference separately unless it is significant; instead, include these differences under their respective higher-level grouping or container.
             </Instructions>
 
             <answer-format>
-            Structure your answer with high-level headings (##) and subheadings (###). Present information in bullet points or numbered lists.
+            Structure your answer with high-level headings (##) and subheadings (###). Present your analysis in bullet points or numbered lists. For example:
+
+            ## High-Level Summary of Differences of <file_name> between Vendor {vendor1} and Vendor {vendor2}
+            - Description of enhancements, regressions, or major changes in bullet points
+            ## Detailed, Hierarchical, Line-by-Line Analysis
+            ### Module-Level Differences
+            ### Grouping/Container/Leaf Differences
+            - "grouping1": Description of change
+            OR
+            - "container1": Description of change
+            OR
+            - "grouping1/container1":
+                - Description of leaf changes
+            OR
+            - "grouping1/container2":
+                - Description of leaf changes
+            OR
+            - "grouping2"/"container1":
+                - Description of leaf changes
+            etc.
+
+
             <markdown-guidelines>
                 <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
                 <markdown-guideline>Use bullet points for lists and maintain consistent indentation.</markdown-guideline>
@@ -576,7 +624,7 @@ class Chatbot:
 
             response = self.generative_model.generate_content(
                 compare_prompt,
-                generation_config=self.generation_config
+                generation_config=self.yang_generation_config
             )
             return response.text.strip()
 
@@ -585,118 +633,9 @@ class Chatbot:
             return f"I'm sorry, an error occurred comparing '{file_name}' for {vendor1} vs {vendor2}."
 
 
-    def handle_file_specific_query(
-        self,
-        file_specific: str,
-        user_query: str,
-        conversation_history: List[Dict]
-    ) -> str:
-        """
-        Analyzes the YANG file(s) mentioned in the user's query. If the user references
-        two vendor packages (e.g. 24A and 24B) for the same file, compare them. Otherwise,
-        provide a full single-file analysis.
-        """
-        logging.info(f"File-specific query detected for '{file_specific}'. Retrieving chunks directly.")
-        retrieved_chunks = self.retrieve_file_chunks(file_specific)
-        if not retrieved_chunks:
-            return f"No content found for file '{file_specific}'."
-
-        # Figure out if the user mentioned 2 vendor packages (24A, 24B).
-        # Example user query might be: "Compare the 24A vs 24B version of tailf-rollback.yang"
-        vendors_mentioned = self.extract_vendor_package_from_query(user_query)
-        unique_vendors = set(vendors_mentioned)
-        
-        # If exactly two distinct vendor packages are found, we do a 2-file comparison (versions).
-        if len(unique_vendors) == 2:
-            logging.info(f"Detected two vendor packages: {unique_vendors}. Proceeding with version comparison.")
-            # We'll reassemble the single-file chunks *by vendor*, then compare.
-            vendor_files_map = {}
-            for vendor in unique_vendors:
-                vendor_chunks = [
-                    chunk for chunk in retrieved_chunks
-                    if chunk.get("metadata", {}).get("vendor_package", "").upper() == vendor.upper()
-                ]
-                # If no chunks found for a vendor, skip
-                if not vendor_chunks:
-                    logging.warning(f"No chunks found for vendor package '{vendor}' of file '{file_specific}'.")
-                    continue
-                reassembled = self.reassemble_yang_files(vendor_chunks)
-                norm_file = file_specific.strip().lower()
-                if norm_file in reassembled:
-                    vendor_files_map[vendor] = reassembled[file_specific]['full_text']
-                else:
-                    logging.warning(f"Could not reassemble file '{file_specific}' for vendor '{vendor}'.")
-
-            # If we have both 24A and 24B reassembled text, craft a compare prompt
-            if len(vendor_files_map) == 2:
-                # Sort to ensure consistent ordering, e.g. 24A then 24B
-                sorted_vendors = sorted(list(vendor_files_map))
-                text_1 = vendor_files_map[sorted_vendors[0]]
-                text_2 = vendor_files_map[sorted_vendors[1]]
-                compare_prompt = f"""
-                You are a YANG expert. Compare two versions of the YANG file "{file_specific}"
-                across vendor packages {sorted_vendors[0]} and {sorted_vendors[1]}.
-
-                ### Vendor Package {sorted_vendors[0]}:
-                {text_1}
-
-                ### Vendor Package {sorted_vendors[1]}:
-                {text_2}
-
-                Please:
-                1) Provide a concise summary of what is new or removed between the two versions.
-                2) Discuss changes in revision history, description text, or any added/removed statements.
-                3) Identify all possible structural differences (groupings, containers, leaves, actions, etc.). Note changes in data definitions, naming, or any re-labeled elements.
-
-                <answer-format>
-                Structure your answer with high-level headings (##) and subheadings (###). Present information in bullet points or numbered lists.
-                <markdown-guidelines>
-                    <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
-                    <markdown-guideline>Use bullet points for lists and maintain consistent indentation.</markdown-guideline>
-                </markdown-guidelines>
-                </answer-format>
-                """
-                prompt_content = Content(role="user", parts=[Part.from_text(compare_prompt)])
-                response = self.generative_model.generate_content(
-                    prompt_content, 
-                    generation_config=self.generation_config
-                )
-                return response.text.strip() if response else "No response generated."
-            else:
-                # Fall back to single-file logic if we can't reassemble both versions
-                logging.warning("Could not retrieve both vendor versions. Falling back to single-file analysis.")
-                # or return some error message if you prefer
-                # return "I'm sorry, both vendor versions were not found."
-        
-        # Otherwise: Only 1 vendor or no explicit vendor => do single-file analysis
-        reassembled_files = self.reassemble_yang_files(retrieved_chunks)
-        norm_file = file_specific.strip().lower()
-        if norm_file not in reassembled_files:
-            return f"Could not reassemble the file '{file_specific}'."
-
-        file_data = reassembled_files[norm_file]
-        single_file_prompt = f"""
-        You are a YANG expert. Analyze the YANG file "{file_specific}" fully, providing:
-        1) A clear overview of its **key structures** (e.g. modules, containers, groupings).
-        2) **Data definitions** (leafs, types, augmentations, etc.).
-        3) **Noteworthy features** or unique statements (e.g., actions, notifications, or extension usage).
-        4) Summarize the primary purpose of this file, including references to
-            the revision statements or description blocks if relevant.
-
-        File Content:
-        {file_data['full_text']}
-        """
-        prompt_content = Content(role="user", parts=[Part.from_text(single_file_prompt)])
-        response = self.generative_model.generate_content(
-            prompt_content, 
-            generation_config=self.generation_config
-        )
-        return response.text.strip() if response else "No response generated."
-
-    # --------------------------------------------------------
-    # Additional Query Handling & LLM Flow
-    # --------------------------------------------------------  
-
+    # ----------------------------------------------------------------------------------
+    # Query Detection
+    # ----------------------------------------------------------------------------------
     def detect_yang_references(self, user_query: str) -> bool:
         """
         Returns True only if the query explicitly mentions 'yang' as a separate word
@@ -733,17 +672,7 @@ class Chatbot:
         lower = query.lower()
         return (("compare" in lower or "difference" in lower) and "yang" in lower and "24a" in lower and "24b" in lower)
     
-    def _convert_to_search_format(self, chunk_data: Dict) -> Dict:
-        """
-        Converts a chunk record to a format suitable for reranking.
-        """
-        return {
-            'id': chunk_data['id'],
-            'content': chunk_data.get('content', "No content"),
-            'document_name': chunk_data.get('document_name', "Unknown doc"),
-            'page_number': chunk_data.get('page_number', "Unknown page"),
-            'metadata': chunk_data.get('metadata', {}),
-        }
+
 
     def detect_file_specific_query(self, query: str) -> str:
         """
@@ -755,25 +684,23 @@ class Chatbot:
             return match.group(1)
         return ""
 
-    def detect_comparison_query(self, query: str) -> bool:
-        """
-        Returns True if the query indicates a desire to compare files, e.g., using terms like 'compare' or 'difference'.
-        """
-        lower = query.lower()
-        return any(term in lower for term in ["compare", "difference", "vs", "versus", "change"])
 
-    def extract_vendor_package_from_query(self, query: str) -> List[str]:
-        """
-        Extracts vendor package identifiers (e.g., "24A" or "24B") from the query.
-        """
-        targets = []
-        lower = query.lower()
-        if "24a" in lower:
-            targets.append("24A")
-        if "24b" in lower:
-            targets.append("24B")
-        return targets
 
+    # ----------------------------------------------------------------------------------
+    # Vector Search & LLM Flow
+    # ----------------------------------------------------------------------------------
+    
+    def _convert_to_search_format(self, chunk_data: Dict) -> Dict:
+        """
+        Converts a chunk record to a format suitable for reranking.
+        """
+        return {
+            'id': chunk_data['id'],
+            'content': chunk_data.get('content', "No content"),
+            'document_name': chunk_data.get('document_name', "Unknown doc"),
+            'page_number': chunk_data.get('page_number', "Unknown page"),
+            'metadata': chunk_data.get('metadata', {}),
+        }
     
     def generate_core_concept(self, user_query: str, conversation_history: List[Dict]) -> str:
         truncated_history = conversation_history[-3:] 
@@ -983,43 +910,45 @@ class Chatbot:
         file_text = file_data['full_text']
         prompt_text = f"""
             You are an advanced YANG model specialist. Provide a thorough explanation of the YANG file '{file_specific}' 
-            based on the content shown below. Your explanation must include:
+            based on the provided contents. Your explanation must include:
 
-            1. **Overview and Purpose**  
+            <answer-format>
+            Structure your answer with high-level headings (##) and subheadings (###). Present information in bullet points or numbered lists.
+
+            **Overview and Purpose**  
             - The module’s intended role in network management or O-RAN contexts.
             - How this file integrates with or depends on other modules.
 
-            2. **Module-Level Details**  
+            **Module-Level Details**  
             - Module name, prefix, namespace.
             - Any 'organization', 'contact', or 'description' statements.
             - Revision history (including revision dates and short descriptions).
 
-            3. **Data Structures**  
-            - Concise summaries of each typedef, grouping, container, list, leaf, or choice. 
-            - Explanations of how these structures relate to one another and to the module’s overall purpose.
-            - Mandatory vs. optional fields, data types, enumerations, or range constraints.
+            **Data Structures**  
+            - Concise high level summaries of the typedef, grouping, container, list, leaf based on the description in each section.
+            - Demonstrate and explain how these structures relate to one another and to the module’s overall purpose.
 
-            4. **Imports and References**  
+            **Imports and References**  
             - Which external YANG modules are imported or referenced, and why.
             - Any relevant RFC or O-RAN specification references within the file.
 
-            5. **Usage and Implications**  
+            **Usage and Implications**  
             - How a network operator or developer might configure or query devices with this module.
             - Notable use cases or deployment scenarios in an O-RAN architecture.
 
-            6. **Conclusion**  
+            **Conclusion**  
             - A concise summary highlighting key takeaways and the file’s significance.
 
+            </answer-format>
+
             <markdown-guidelines>
-                <markdown-guideline>Structure your answer with high-level headings (##) and subheadings (###). Present information in bullet points or numbered lists.</markdown-guideline>
                 <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
                 <markdown-guideline>Use bullet points for lists and maintain consistent indentation.</markdown-guideline>
             </markdown-guidelines>
 
             <important-notes>
-                <important-note>Be structured and detailed but remain concise and logical.</important-note>
-                <important-note>Refer to any lines or sections in the file as needed, 
-                            and clarify terms or acronyms if they appear in the module content.</important-note>
+                    <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
+                    <important-note>Ensure the explanation is presented step-by-step, covering relevant stages.</important-note>
             </important-notes>
 
             ## File Content
