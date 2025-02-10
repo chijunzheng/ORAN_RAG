@@ -70,39 +70,39 @@ class YangChunker:
         namespace: str,
         yang_version: str,
         organization: str,
-        description: str
+        description: str,
+        is_oran: bool = False,
+        workgroup: str = None
     ) -> List[Dict]:
         """
         Splits the provided markdown-converted YANG text into chunks.
-        Each chunk is prefixed with a metadata header that contains information such as:
-          - File Name
-          - Module Name
-          - Revision Data
-          - Vendor Package
-          - Namespace
-          - Yang Version
-          - Organization
-          - Description snippet
-          - And the new "chunk_index" (sequential per file)
+        Each chunk is prefixed with a metadata header that contains information.
+        For ORAN files, the header will include the ORAN version and workgroup;
+        for vendor-specific files, it will include the vendor package.
         
         Returns:
             List[Dict]: List of chunk dictionaries with a unique UUID and full metadata.
         """
-        # First, split the text into candidate chunks using our splitter.
-        candidate_chunks = self.splitter.split_text(text)
-        logging.info(f"Candidate chunks count before additional splitting: {len(candidate_chunks)}")
-        
-        # Prepare a base metadata header that will be prepended to every chunk.
-        base_metadata = (
-            f"File: {file_name}; Module: {module_name}; Revision Data: {revision}; "
-            f"Vendor Package: {package_name}; Namespace: {namespace}; Yang Version: {yang_version}; "
-            f"Organization: {organization}; Description: {description}"
-        )
-        # We will add the chunk index to the header for each chunk.
-        # For now, we set a header without the chunk index, and later append "Chunk Index: {idx}"
+        # Build the base metadata header based on whether this is an ORAN file.
+        if is_oran:
+            base_metadata = (
+                f"File: {file_name}; Module: {module_name}; Revision Data: {revision}; "
+                f"ORAN Version: {package_name}; Workgroup: {workgroup}; Namespace: {namespace}; "
+                f"Yang Version: {yang_version}; Organization: {organization}; Description: {description}"
+            )
+        else:
+            base_metadata = (
+                f"File: {file_name}; Module: {module_name}; Revision Data: {revision}; "
+                f"Vendor Package: {package_name}; Namespace: {namespace}; Yang Version: {yang_version}; "
+                f"Organization: {organization}; Description: {description}"
+            )
         base_header = base_metadata + "\n\n"
         base_header_tokens = count_tokens(base_header)
 
+        # Split the text into candidate chunks using the splitter.
+        candidate_chunks = self.splitter.split_text(text)
+        logging.info(f"Candidate chunks count before additional splitting: {len(candidate_chunks)}")
+        
         # Process candidate chunks and further split if necessary.
         final_chunks = []
         for candidate in candidate_chunks:
@@ -112,33 +112,39 @@ class YangChunker:
             final_chunks.extend(pieces)
         logging.info(f"Total candidate chunks after ensuring max token limit: {len(final_chunks)}")
 
-        # Assemble the final chunk dictionaries, now including the chunk index in both the metadata header and the metadata dict.
+        # Assemble the final chunk dictionaries, including the chunk index.
         chunks = []
         for idx, chunk_text in enumerate(final_chunks, start=1):
             if not chunk_text.strip():
                 continue
-            # Create a header that now includes the chunk index.
             header_with_index = base_header + f"Chunk Index: {idx}\n\n"
             full_content = header_with_index + chunk_text
             total_tokens = count_tokens(full_content)
             if total_tokens > self.max_token_limit:
                 logging.error(f"Chunk for file {file_name} exceeds max token limit: {total_tokens} tokens.")
             chunk_id = str(uuid.uuid4())
+            # Build metadata dict; include ORAN-specific keys if applicable.
+            metadata_dict = {
+                "doc_type": "yang_model",
+                "module": module_name,
+                "revision": revision,
+                "file_name": file_name,
+                "namespace": namespace,
+                "yang_version": yang_version,
+                "organization": organization,
+                "description": description,
+                "chunk_index": idx
+            }
+            if is_oran:
+                metadata_dict["oran_version"] = package_name  # Here, package_name represents ORAN version.
+                metadata_dict["workgroup"] = workgroup
+            else:
+                metadata_dict["vendor_package"] = package_name
+
             chunks.append({
                 "id": chunk_id,
                 "content": full_content,
-                "metadata": {
-                    "doc_type": "yang_model",
-                    "module": module_name,
-                    "revision": revision,
-                    "vendor_package": package_name,
-                    "file_name": file_name,
-                    "namespace": namespace,
-                    "yang_version": yang_version,
-                    "organization": organization,
-                    "description": description,
-                    "chunk_index": idx
-                }
+                "metadata": metadata_dict
             })
         logging.info(f"Created {len(chunks)} YANG chunks for file: {file_name}")
         return chunks
