@@ -15,6 +15,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from src.evaluation.evaluator import Evaluator
 from src.vector_search.reranker import Reranker
 from src.chatbot.yang_processor import YangProcessor
+from src.chatbot.rat_processor import RATProcessor
 
 
 
@@ -331,6 +332,7 @@ class Chatbot:
           - Otherwise, fallback to vector search + re-ranking + final generation.
         """
         try:
+            # 1) YANG or vendor-specific or ORAN queries => YangProcessor
             if "yang" in user_query.lower() or "24a" in user_query.lower() or "24b" in user_query.lower() or "oran" in user_query.lower():
                 # Use the same vector_searcher-based YangProcessor
                 all_yang_chunks = list(self.vector_searcher.chunks.values())
@@ -339,32 +341,45 @@ class Chatbot:
                     yang_chunks=all_yang_chunks,
                     llm=self.generative_model,
                     generation_config=self.yang_generation_config
-                )      
+                )
+            
+            # 2) Otherwise, RAT fallback for general queries
             else:
-                core_concept = self.generate_core_concept(user_query, conversation_history)
-                combined_query = f"User query: {user_query}\nCore concept: {core_concept}"
+                logging.info("Falling back to RAT with reranker logic.")
+                # Perform vector search with the user's query
+                combined_query = f"User query: {user_query}"
                 retrieved_chunks = self.vector_searcher.vector_search(
+                    query_text=combined_query,
+                    num_neighbors=self.num_neighbors,
                     index_endpoint_display_name=self.index_endpoint_display_name,
                     deployed_index_id=self.deployed_index_id,
-                    query_text=combined_query,
-                    num_neighbors=self.num_neighbors
                 )
-                logging.info(f"Retrieved {len(retrieved_chunks)} chunks for the query.")
                 if not retrieved_chunks:
                     return "I'm sorry, I couldn't find relevant information."
+
+                # Rerank the retrieved chunks
                 formatted_records = [self._convert_to_search_format(c) for c in retrieved_chunks]
                 reranked_chunks = self.reranker.rerank(query=combined_query, records=formatted_records)
-                logging.info(f"Reranked to top {len(reranked_chunks)} chunks.")
                 if not reranked_chunks:
                     return "I'm sorry, no relevant information after reranking."
-                prompt_content = self.generate_prompt_content(
-                    query=user_query,
-                    concept=self.generate_core_concept(user_query, conversation_history),
-                    chunks=reranked_chunks,
-                    conversation_history=conversation_history
+
+                # Build a single combined context from the top reranked chunks
+                # (for RAT, we won't do a standard single “prompt content,”
+                #  but we do want the text so the RAT can retrieve again.)
+                top_text = "\n".join([ch["content"] for ch in reranked_chunks])
+
+                # Now, pass the user query + top_text to RAT. We'll do iterative refinement with an additional RATProcessor.
+                rat = RATProcessor(
+                    vector_searcher=self.vector_searcher,
+                    llm=self.generative_model,
+                    generation_config=self.generation_config,
+                    num_iterations=3,
+                    index_endpoint_display_name=self.index_endpoint_display_name,
+                    deployed_index_id=self.deployed_index_id,
                 )
-                response = self.generative_model.generate_content(prompt_content, generation_config=self.generation_config)
-                return response.text.strip() if response else "I'm sorry, I couldn't generate a response."
+                final_answer = rat.process_query(user_query)
+                return final_answer
+
         except Exception as e:
             logging.error(f"Error in get_response: {e}", exc_info=True)
             return "I'm sorry, an error occurred while processing your request."
