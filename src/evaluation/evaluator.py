@@ -23,6 +23,7 @@ from vertexai.generative_models import (
 )
 from src.vector_search.searcher import VectorSearcher
 from src.vector_search.reranker import Reranker
+from src.chatbot.rat_processor import RATProcessor
 
 class Evaluator:
     def __init__(
@@ -196,6 +197,7 @@ class Evaluator:
     ) -> str:
         """
         Generates content with exponential backoff and jitter.
+        If errors occur (e.g. quota exceeded or empty response), retries with increasing wait time.
         """
         wait_time = 1
         for attempt in range(1, retries + 1):
@@ -205,19 +207,25 @@ class Evaluator:
                     generation_config=self.generation_config,
                 )
                 response_text = response.text.strip()
-                if not response_text:
-                    raise ValueError("Empty response.")
+                # If response is empty or equals "Error", treat it as a failure.
+                if not response_text or response_text.lower() == "error":
+                    raise ValueError("Empty or error response.")
                 return response_text
             except Exception as e:
+                error_str = str(e).lower()
+                # If the error message suggests quota or rate limit issues, increase the backoff factor.
+                if "quota" in error_str or "rate limit" in error_str:
+                    logging.warning("Quota or rate limit error detected; increasing backoff factor.")
+                    backoff_factor *= 2
                 if attempt == retries:
                     logging.error(f"Final attempt {attempt}: {e}. Skipping.")
-                    return "Error"
+                    return "Error: LLM generation failed after multiple attempts."
                 jitter = random.uniform(0, 1)
                 sleep_time = min(wait_time * backoff_factor, max_wait)
                 logging.warning(f"Attempt {attempt}: {e}. Retrying in {sleep_time + jitter:.2f} seconds.")
                 time.sleep(sleep_time + jitter)
                 wait_time *= backoff_factor
-        return "Error"
+        return "Error: LLM generation failed after multiple attempts."
 
     # ------------------------------------------------------------------
     # (3) HELPER: Build prompt for final multiple-choice generation
@@ -312,6 +320,71 @@ class Evaluator:
         except Exception as e:
             logging.error(f"Error in RAG pipeline for question '{question}': {e}", exc_info=True)
             return "Error"
+        
+    # ------------------------------------------------------------------
+    # (5) OR Evaluate with Retrieval Augmented Thoughts (RAT)
+    # ------------------------------------------------------------------
+
+    def query_rat_pipeline(self, question: str, choices: List[str]) -> str:
+        """
+        Uses the RATProcessor to generate an answer for a multiple-choice question.
+        
+        Pipeline:
+        (A) Step-Back: Extract the core concept from the question.
+        (B) RAT Iteration: Use RATProcessor (with iterative CoT refinement) to obtain a preliminary answer.
+        (C) Final Prompt: Build a final prompt that includes the preliminary answer and the multiple-choice options        
+        Returns:
+            A string representing the final answer (typically a single letter) from the LLM.
+        """
+        try:
+        
+            # (A) Use RATProcessor to generate the preliminary answer.
+            rat = RATProcessor(
+                vector_searcher=self.vector_searcher,
+                llm=self.generative_model,
+                generation_config=self.generation_config,
+                index_endpoint_display_name=self.index_endpoint_display_name,
+                deployed_index_id=self.deployed_index_id,
+                num_iterations=3,
+            )
+            # For evaluation, we use an empty conversation history.
+            conversation_history = []
+            final_cot = rat.process_query(question, conversation_history)
+
+            # (C) Build final prompt: Use preliminary answer and provided multiple-choice options.
+            # Format the choices with letters (A, B, C, etc.).
+            choices_text = "\n".join([f"{chr(65 + i)}. {choice}" for i, choice in enumerate(choices)]) if choices else "No choices provided."
+            
+            refine_prompt = f"""
+                You are an expert in O-RAN systems. A user has provided the following multiple-choice question:
+
+                Question:
+                {question}
+
+                Multiple Choice Options:
+                {choices_text}
+
+                Based on the following chain-of-thought, select the correct answer choice.
+                **IMPORTANT**: Output ONLY a single number (1, 2, 3, or 4) corresponding to the correct choice.
+                Do not include any additional text, commentary, or formatting.
+
+                Final Chain-of-Thought:
+                {final_cot}
+
+                Final Answer (output exactly one number from 1 to 4):
+            """
+            
+            # Build prompt content.
+            content = Content(role="user", parts=[Part.from_text(refine_prompt)])
+                
+            refined_response = self.safe_generate_content(content)
+            final_answer = refined_response.strip() if refined_response.strip() else final_cot
+            return final_answer
+
+        except Exception as e:
+            logging.error(f"Error in RAT evaluation for question '{question}': {e}", exc_info=True)
+            return "Error"
+
 
     # ------------------------------------------------------------------
     # (5) Evaluate a single Q&A entry
@@ -333,7 +406,12 @@ class Evaluator:
             correct_choice = correct_str.strip()
 
             # Query RAG with Step-Back
-            rag_full_answer = self.query_rag_pipeline(question, choices)
+            # rag_full_answer = self.query_rag_pipeline(question, choices)
+            # rag_pred_choice = self.extract_choice_from_answer(rag_full_answer)
+            # rag_correct = (rag_pred_choice == correct_choice)
+
+            # Query RAG with RAT
+            rag_full_answer = self.query_rat_pipeline(question, choices)
             rag_pred_choice = self.extract_choice_from_answer(rag_full_answer)
             rag_correct = (rag_pred_choice == correct_choice)
 

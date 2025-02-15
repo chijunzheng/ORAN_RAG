@@ -173,7 +173,7 @@ class YangProcessor:
 
         # 1) If user says "list" or "show" or "what files" plus "vendor" or "oran" => list_inventory
         if (("list" in q_lower or "show" in q_lower or "what files" in q_lower)
-            and ("vendor" in q_lower or "oran" in q_lower)):
+            and ("vendor" in q_lower or "oran" in q_lower) and ("yang" in q_lower or ".yang" in q_lower)):
             filter_dict["action"] = "list_inventory"
 
         # 2) If user references a special O-RAN directory name like "O-RAN.WG4.MP-YANGs-v06.00"

@@ -333,7 +333,7 @@ class Chatbot:
         """
         try:
             # 1) YANG or vendor-specific or ORAN queries => YangProcessor
-            if "yang" in user_query.lower() or "24a" in user_query.lower() or "24b" in user_query.lower() or "oran" in user_query.lower():
+            if "yang" in user_query.lower() or "24a" in user_query.lower() or "24b" in user_query.lower() and "oran" in user_query.lower():
                 # Use the same vector_searcher-based YangProcessor
                 all_yang_chunks = list(self.vector_searcher.chunks.values())
                 return self.yang_processor.get_analysis(
@@ -343,42 +343,90 @@ class Chatbot:
                     generation_config=self.yang_generation_config
                 )
             
-            # 2) Otherwise, RAT fallback for general queries
-            else:
-                logging.info("Falling back to RAT with reranker logic.")
-                # Perform vector search with the user's query
-                combined_query = f"User query: {user_query}"
-                retrieved_chunks = self.vector_searcher.vector_search(
-                    query_text=combined_query,
-                    num_neighbors=self.num_neighbors,
-                    index_endpoint_display_name=self.index_endpoint_display_name,
-                    deployed_index_id=self.deployed_index_id,
-                )
-                if not retrieved_chunks:
-                    return "I'm sorry, I couldn't find relevant information."
+            # (2) Otherwise, use RATProcessor first to generate a preliminary answer.
+            logging.info("Using RATProcessor to generate preliminary answer.")
+            from src.chatbot.rat_processor import RATProcessor
+            rat = RATProcessor(
+                vector_searcher=self.vector_searcher,
+                llm=self.generative_model,
+                generation_config=self.generation_config,
+                index_endpoint_display_name=self.index_endpoint_display_name,
+                deployed_index_id=self.deployed_index_id,
+                num_iterations=3
+            )
+            revised_cot = rat.process_query(user_query, conversation_history)
+            logging.info(f"Preliminary answer (first 200 chars): {revised_cot[:200]}...")
 
-                # Rerank the retrieved chunks
-                formatted_records = [self._convert_to_search_format(c) for c in retrieved_chunks]
-                reranked_chunks = self.reranker.rerank(query=combined_query, records=formatted_records)
-                if not reranked_chunks:
-                    return "I'm sorry, no relevant information after reranking."
+            # (3) Build a final "refine" prompt that references the final CoT, query, and conversation history.
+            #     We skip any extra vector search or reranking step here.
+            # Gather last 5 conversation turns:
+            history_text = ""
+            for turn in conversation_history[-5:]:
+                history_text += f"User: {turn.get('user')}\nAssistant: {turn.get('assistant')}\n"
+            history_text += f"User: {user_query}\n"
 
-                # Build a single combined context from the top reranked chunks
-                # (for RAT, we won't do a standard single “prompt content,”
-                #  but we do want the text so the RAT can retrieve again.)
-                top_text = "\n".join([ch["content"] for ch in reranked_chunks])
+            refine_prompt = f"""
+            <purpose>
+            You are an advanced O-RAN expert. Refine the following chain-of-thought into a final, well-structured answer.
+            Use the conversation history for context and clarity. Do not insert references inline after bullets; place them in a consolidated block at the end of each relevant section.
+            </purpose>                
+            <instructions>
+                <instruction>Structure the answer with high-level headings (##) and subheadings (###). Present information in bullet points or numbered lists.</instruction>
+                <instruction>Do NOT include reference citations immediately after individual bullet points or inline within paragraphs.</instruction>
+                <instruction>Instead, compile all references at the end of each section in one consolidated block formatted with HTML <small> tags.</instruction>
+                <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
+            </instructions>
+            <sections>
+                <answer-format>
+                    - Structure the answer with high-level headings (##) and subheadings (###). Present information in bullet points or numbered lists.
+                    **Reference Rules**:
+                    - **Do NOT** place references after individual bullets or sentences.
+                    - **Do NOT** place references inline within paragraphs.                    
+                    - Instead, gather all the references at the **end of the relevant heading** (## or ###) in **one combined block**.
+                    - When listing references, include the actual document name and page number(s) as provided in the retrieved context.
+                    - Format references in smaller font, using HTML `<small>` tags and indentation. For example:
+                            <small>
+                                &nbsp;&nbsp;*(Reference: [Document Name], page [Page Number(s)]; [Another Document], page [Page Number(s)])*
+                            </small>
+                </answer-format>
+                <markdown-guidelines>
+                    <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
+                    <markdown-guideline>Use bullet points or numbered lists and maintain consistent indentation.</markdown-guideline>
+                </markdown-guidelines>
+                <important-notes>
+                    <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
+                    <important-note>Be logical and concise, while providing as much detail as possible.</important-note>
+                    <important-note>Ensure the explanation is presented step-by-step, covering relevant stages.</important-note>
+                </important-notes>
+                <audience>
+                    Engineers new to O-RAN.
+                </audience>
+                <tone>
+                    Professional and informative.
+                </tone>
+            </sections>
+            
+            <Revised Chain-of-Thought>
+            {revised_cot}
+            </Revised Chain-of-Thought>
 
-                # Now, pass the user query + top_text to RAT. We'll do iterative refinement with an additional RATProcessor.
-                rat = RATProcessor(
-                    vector_searcher=self.vector_searcher,
-                    llm=self.generative_model,
-                    generation_config=self.generation_config,
-                    num_iterations=3,
-                    index_endpoint_display_name=self.index_endpoint_display_name,
-                    deployed_index_id=self.deployed_index_id,
-                )
-                final_answer = rat.process_query(user_query)
-                return final_answer
+            <conversation-history>
+            {conversation_history}
+            </conversation-history>
+
+            User Query:
+            {user_query}
+
+            <answer>
+
+            </answer>
+            """
+            content = Content(role="user", parts=[Part.from_text(refine_prompt)])
+            final_response = self.generative_model.generate_content(content, generation_config=self.generation_config)
+            final_answer = final_response.text.strip() if final_response and final_response.text.strip() else revised_cot
+        
+
+            return final_answer
 
         except Exception as e:
             logging.error(f"Error in get_response: {e}", exc_info=True)
