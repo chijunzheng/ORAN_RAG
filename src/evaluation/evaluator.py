@@ -24,6 +24,8 @@ from vertexai.generative_models import (
 from src.vector_search.searcher import VectorSearcher
 from src.vector_search.reranker import Reranker
 from src.chatbot.rat_processor import RATProcessor
+from src.evaluation.rat_processor_eval import RATProcessorEval
+
 
 class Evaluator:
     def __init__(
@@ -188,16 +190,19 @@ class Evaluator:
     # ------------------------------------------------------------------
     # (2) SAFE GENERATE CONTENT
     # ------------------------------------------------------------------
+
+
     def safe_generate_content(
         self,
         content: Content,
         retries: int = 10,
         backoff_factor: int = 2,
-        max_wait: int = 30
+        max_wait: int = 300  # Maximum wait increased to 5 minutes for non-quota errors.
     ) -> str:
         """
         Generates content with exponential backoff and jitter.
-        If errors occur (e.g. quota exceeded or empty response), retries with increasing wait time.
+        If a quota or rate-limit error is encountered, it waits a fixed longer duration
+        (e.g., 120 seconds) before retrying, to allow the quota to recover.
         """
         wait_time = 1
         for attempt in range(1, retries + 1):
@@ -207,18 +212,27 @@ class Evaluator:
                     generation_config=self.generation_config,
                 )
                 response_text = response.text.strip()
-                # If response is empty or equals "Error", treat it as a failure.
+                # If response is empty or equals "error", consider it a failure.
                 if not response_text or response_text.lower() == "error":
                     raise ValueError("Empty or error response.")
                 return response_text
+
             except Exception as e:
-                error_str = str(e).lower()
-                # If the error message suggests quota or rate limit issues, increase the backoff factor.
-                if "quota" in error_str or "rate limit" in error_str:
-                    logging.warning("Quota or rate limit error detected; increasing backoff factor.")
-                    backoff_factor *= 2
+                error_text = str(e).lower()
+                # Detect quota or rate limit errors.
+                if any(keyword in error_text for keyword in ["429", "quota", "rate limit", "resourceexhausted"]):
+                    logging.warning("Quota or rate limit error detected; forcing an extended wait of 120 seconds.")
+                    fixed_wait = 120  # Fixed wait time for quota errors.
+                    if attempt == retries:
+                        logging.error(f"Final attempt {attempt}: {e}. Returning error message.")
+                        return "Error: LLM generation failed after multiple attempts due to quota issues."
+                    logging.warning(f"Attempt {attempt}: {e}. Retrying in {fixed_wait} seconds.")
+                    time.sleep(fixed_wait)
+                    continue  # Skip the exponential backoff for this iteration.
+
+                # For other errors, use exponential backoff with jitter.
                 if attempt == retries:
-                    logging.error(f"Final attempt {attempt}: {e}. Skipping.")
+                    logging.error(f"Final attempt {attempt}: {e}. Returning error message.")
                     return "Error: LLM generation failed after multiple attempts."
                 jitter = random.uniform(0, 1)
                 sleep_time = min(wait_time * backoff_factor, max_wait)
@@ -314,7 +328,7 @@ class Evaluator:
             )
 
             # (E) Generate final answer
-            assistant_response = self.safe_generate_content(prompt_content)
+            assistant_response = self.safe_generate_content(prompt_content, retries=10, backoff_factor=2, max_wait=30)
             return assistant_response.strip() if assistant_response else "Error"
 
         except Exception as e:
@@ -327,57 +341,66 @@ class Evaluator:
 
     def query_rat_pipeline(self, question: str, choices: List[str]) -> str:
         """
-        Uses the RATProcessor to generate an answer for a multiple-choice question.
+        Uses the evaluation-specific RATProcessor (RATProcessorEval) to generate an answer for a multiple-choice question.
         
         Pipeline:
-        (A) Step-Back: Extract the core concept from the question.
-        (B) RAT Iteration: Use RATProcessor (with iterative CoT refinement) to obtain a preliminary answer.
-        (C) Final Prompt: Build a final prompt that includes the preliminary answer and the multiple-choice options        
+        (A) Use RATProcessorEval (with iterative CoT refinement) to generate a chain-of-thought that incorporates both the question and the answer options.
+        (B) Build a final prompt that instructs the LLM to provide detailed, step-by-step reasoning and conclude with a final line in the format:
+                "Final Answer: X"
+            where X is one of 1, 2, 3, or 4.
+        
         Returns:
-            A string representing the final answer (typically a single letter) from the LLM.
+            A string representing the final LLM output.
         """
         try:
-        
-            # (A) Use RATProcessor to generate the preliminary answer.
-            rat = RATProcessor(
+            # (A) Use RATProcessorEval to generate the chain-of-thought with choices.
+            rat = RATProcessorEval(
                 vector_searcher=self.vector_searcher,
                 llm=self.generative_model,
                 generation_config=self.generation_config,
                 index_endpoint_display_name=self.index_endpoint_display_name,
                 deployed_index_id=self.deployed_index_id,
-                num_iterations=3,
+                num_iterations=2,
             )
-            # For evaluation, we use an empty conversation history.
-            conversation_history = []
-            final_cot = rat.process_query(question, conversation_history)
+            conversation_history = []  # For evaluation, we assume an empty history.
+            final_cot = rat.process_query(question, conversation_history, choices=choices)
+            logging.info(f"[Eval] Final CoT (first 200 chars): {final_cot[:200]}")
 
-            # (C) Build final prompt: Use preliminary answer and provided multiple-choice options.
-            # Format the choices with letters (A, B, C, etc.).
-            choices_text = "\n".join([f"{chr(65 + i)}. {choice}" for i, choice in enumerate(choices)]) if choices else "No choices provided."
-            
+            # (B) Build the final prompt.
+            # Format the choices with numbers.
+            choices_text = "\n".join(choices)
+
+            # Instruct the model to produce detailed reasoning and then output a final line that reads exactly:
+            # "Final Answer: X" where X is one of the allowed numbers.
             refine_prompt = f"""
-                You are an expert in O-RAN systems. A user has provided the following multiple-choice question:
-
-                Question:
-                {question}
-
-                Multiple Choice Options:
-                {choices_text}
-
-                Based on the following chain-of-thought, select the correct answer choice.
-                **IMPORTANT**: Output ONLY a single number (1, 2, 3, or 4) corresponding to the correct choice.
-                Do not include any additional text, commentary, or formatting.
-
-                Final Chain-of-Thought:
-                {final_cot}
-
-                Final Answer (output exactly one number from 1 to 4):
-            """
-            
-            # Build prompt content.
-            content = Content(role="user", parts=[Part.from_text(refine_prompt)])
+            You are an expert in O-RAN systems. Based on the chain-of-thought below—which includes your detailed reasoning that has considered the multiple-choice options—produce a final answer that includes your complete step-by-step reasoning. 
+            At the very end of your output, include a separate line exactly in the following format:
                 
-            refined_response = self.safe_generate_content(content)
+                Final Answer: X
+
+            where X is the correct option number (choose one of 1, 2, 3, or 4). Do not output any extra commentary after that final line.
+
+            Question:
+            {question}
+
+            Multiple Choice Options:
+            {choices_text}
+
+            Final Chain-of-Thought:
+            {final_cot}
+
+            Please provide your final answer along with your detailed reasoning:
+            """
+            from vertexai.generative_models import Content, GenerationConfig, Part
+            prompt_content = Content(role="user", parts=[Part.from_text(refine_prompt)])
+
+            # Use a final generation configuration that allows more tokens (e.g., 128 tokens) for detailed reasoning.
+            final_gen_config = GenerationConfig(
+                temperature=0.0,
+                top_p=1.0,
+                max_output_tokens=128
+            )
+            refined_response = self.safe_generate_content(prompt_content, retries=15, backoff_factor=2, max_wait=40)
             final_answer = refined_response.strip() if refined_response.strip() else final_cot
             return final_answer
 
