@@ -5,6 +5,7 @@ import argparse
 import logging
 import sys
 import json
+import uuid
 from google.cloud import storage
 
 # Add the project root to sys.path
@@ -25,6 +26,8 @@ from src.vector_search.searcher import VectorSearcher
 from src.chatbot.chatbot import Chatbot
 from src.evaluation.evaluator import Evaluator
 from src.vector_search.reranker import Reranker
+from src.yang_pipeline import process_yang_dir
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -176,10 +179,10 @@ def main():
         logging.error(f"Failed to initialize Reranker: {e}")
         sys.exit(1)
 
-    # 1. Preprocessing Stage
+    # 1. Preprocessing Stage (ORAN + YANG)
     if not skip_preprocessing:
         logging.info("Starting preprocessing stages.")
-        # Perform Preprocessing
+        # Perform ORAN PDF-based Preprocessing
         converter = DocumentConverter(directory_path=config['paths']['documents'])
         try:
             converter.convert_docx_to_pdf()
@@ -206,7 +209,7 @@ def main():
             logging.error(f"Text formatting failed: {e}")
             sys.exit(1)
 
-        # Split into Chunks
+        # Chunk pdf docs
         chunker = DocumentChunker(
             chunk_size=chunking_config['chunk_size'],
             chunk_overlap=chunking_config['chunk_overlap'],
@@ -217,49 +220,58 @@ def main():
             min_char_count=chunking_config['min_char_count']
         )
         try:
-            chunks_with_ids = chunker.split_documents(all_cleaned_documents)
-            logging.info(f"Split documents into {len(chunks_with_ids)} chunks.")
+            oran_chunks = chunker.split_documents(all_cleaned_documents)
+            logging.info(f"Split documents into {len(oran_chunks)} chunks.")
         except Exception as e:
             logging.error(f"Document chunking failed: {e}")
             sys.exit(1)
 
-        # Define the chunks file path from config
-        chunks_file = os.path.join(config['paths']['embeddings_save_path'], 'chunks.json')
-        
-        # Save chunks to JSON Lines file
+        # Process YANG files
         try:
-            chunker.save_chunks_to_json(chunks_with_ids, file_path=chunks_file)
+            yang_chunks = process_yang_dir(paths_config['yang_dir'])
+            logging.info(f"Processed YANG files into {len(yang_chunks)} chunks.")
+        except Exception as e:
+            logging.error(f"YANG processing failed: {e}")
+            sys.exit(1)
+
+        # Combine ORAN and YANG chunks (if desired)
+        combined_chunks = oran_chunks + yang_chunks
+
+        # Save combined chunks to JSON Lines file
+        chunks_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.json')
+        try:
+            chunker.save_chunks_to_json(combined_chunks, file_path=chunks_file)
             logging.info(f"Saved chunks to {chunks_file}")
         except Exception as e:
             logging.error(f"Failed to save chunks: {e}")
             sys.exit(1)
         
-        # Upload chunks to GCS
+        # Upload chunks file to GCS
         try:
             chunker.upload_to_gcs(file_path=chunks_file, overwrite=True)
             logging.info("Uploaded chunks to GCS.")
         except Exception as e:
             logging.error(f"Failed to upload chunks to GCS: {e}")
             sys.exit(1)
-
-        # Initialize Embedder
-        embedder = Embedder(
-            project_id=gcp_config['project_id'],
-            location=gcp_config['location'],
-            bucket_name=gcp_config['bucket_name'],
-            embeddings_path=gcp_config['embeddings_path'],
-            credentials=auth_manager.credentials
-        )
-        # Generate and Upload Embeddings
+        
+        # --- Embedding Generation Stage ---
         try:
-            embeddings_file = os.path.join(config['paths']['embeddings_save_path'], 'embeddings.json')
-            embedder.generate_and_store_embeddings(chunks_with_ids, local_jsonl_path=embeddings_file)
+            embedder = Embedder(
+                project_id=gcp_config['project_id'],
+                location=gcp_config['location'],
+                bucket_name=gcp_config['bucket_name'],
+                embeddings_path=gcp_config['embeddings_path'],
+                credentials=auth_manager.get_credentials()
+            )
+            embeddings_file = os.path.join(paths_config['embeddings_save_path'], 'embeddings.jsonl')
+            embedder.generate_and_store_embeddings(combined_chunks, local_jsonl_path=embeddings_file)
             logging.info(f"Embeddings generated and saved to {embeddings_file}")
         except Exception as e:
             logging.error(f"Embeddings generation failed: {e}")
             sys.exit(1)
     else:
-        logging.info("Skipping preprocessing stages: document conversion, loading PDFs, text formatting, chunking, and embedding.")
+        logging.info("Skipping preprocessing stages.")
+
 
     # 2. Index Creation Stage
     index = None

@@ -23,6 +23,9 @@ from vertexai.generative_models import (
 )
 from src.vector_search.searcher import VectorSearcher
 from src.vector_search.reranker import Reranker
+from src.chatbot.rat_processor import RATProcessor
+from src.evaluation.rat_processor_eval import RATProcessorEval
+
 
 class Evaluator:
     def __init__(
@@ -51,6 +54,9 @@ class Evaluator:
             qna_dataset_path (str): Path to the Q&A dataset in GCS.
             generation_config (Dict): Configuration for text generation parameters.
             vector_searcher (VectorSearcher): Instance of VectorSearcher for performing vector searches.
+            credentials: Google Cloud credentials object.
+            num_neighbors (int): Number of neighbors to retrieve in vector search.
+            reranker (Reranker): Instance of Reranker for reranking search results.
         """
         self.project_id = project_id
         self.location = location
@@ -60,8 +66,8 @@ class Evaluator:
         self.vector_searcher = vector_searcher  
         self.generative_model = GenerativeModel("gemini-1.5-flash-002")
         self.generation_config = GenerationConfig(
-            temperature=generation_config.get('temperature', 0.7),
-            top_p=generation_config.get('top_p', 0.9),
+            temperature=generation_config.get('temperature', 0),
+            top_p=generation_config.get('top_p', 1),
             max_output_tokens=generation_config.get('max_output_tokens', 1000),
         )
         self.storage_client = storage.Client(project=self.project_id, credentials=credentials)
@@ -70,7 +76,6 @@ class Evaluator:
         self.index_endpoint_display_name = index_endpoint_display_name
         self.deployed_index_id = deployed_index_id
         self.reranker = reranker
-
 
         logging.info("Evaluator initialized successfully.")
 
@@ -128,24 +133,76 @@ class Evaluator:
             logging.error(f"Failed to load Q&A dataset from GCS: {e}", exc_info=True)
             raise
 
+    # ------------------------------------------------------------------
+    # (1) STEP-BACK PROMPT: Generate a single core concept
+    #     Mimics the prompt snippet from chatbot.py
+    # ------------------------------------------------------------------
+    def generate_eval_core_concept(self, question: str) -> str:
+        """
+        Calls the LLM to generate the single core concept behind the question,
+        using the same prompt pattern from chatbot.py.
+        """
+        # This is a minimal example: in evaluation, we often
+        # don't have a "conversation history," so we skip that or feed empty.
+        conversation_text = ""  # Or store last few Q&A turns if you wish
+
+        prompt = f"""
+        You are an O-RAN expert. Analyze the user's query below 
+        and identify the single core concept needed to answer it.
+
+        Conversation (recent):
+        {conversation_text}
+
+        User Query: {question}
+
+        Instructions:
+        1. Provide a concise concept or principle behind this query.
+        2. Do not provide any further explanation—only briefly describe the concept.
+
+        Concept:
+        """
+        user_prompt = Content(
+            role="user",
+            parts=[Part.from_text(prompt)]
+        )
+
+        # OVERRIDE: Use lower randomness for concept extraction
+        concept_generation_config = GenerationConfig(
+        temperature=0.0,   # or 0.1
+        top_p=1.0,         # no nucleus sampling
+        max_output_tokens=128 
+        )
+
+        try:
+            response = self.generative_model.generate_content(
+                user_prompt,
+                generation_config=concept_generation_config,
+            )
+            raw_text = response.text.strip()
+            # Basic fallback if empty
+            if not raw_text:
+                return "O-RAN Architecture (General)"
+            return raw_text
+        except Exception as e:
+            logging.error(f"Error generating eval core concept: {e}", exc_info=True)
+            return "O-RAN Architecture (General)"
+
+    # ------------------------------------------------------------------
+    # (2) SAFE GENERATE CONTENT
+    # ------------------------------------------------------------------
+
+
     def safe_generate_content(
         self,
         content: Content,
         retries: int = 10,
         backoff_factor: int = 2,
-        max_wait: int = 30
+        max_wait: int = 300  # Maximum wait increased to 5 minutes for non-quota errors.
     ) -> str:
         """
         Generates content with exponential backoff and jitter.
-
-        Args:
-            content (Content): Content object for the generative model.
-            retries (int, optional): Number of retry attempts. Defaults to 10.
-            backoff_factor (int, optional): Backoff multiplier. Defaults to 2.
-            max_wait (int, optional): Maximum wait time. Defaults to 30.
-
-        Returns:
-            str: Generated text or "Error" upon failure.
+        If a quota or rate-limit error is encountered, it waits a fixed longer duration
+        (e.g., 120 seconds) before retrying, to allow the quota to recover.
         """
         wait_time = 1
         for attempt in range(1, retries + 1):
@@ -155,98 +212,60 @@ class Evaluator:
                     generation_config=self.generation_config,
                 )
                 response_text = response.text.strip()
-                if not response_text:
-                    raise ValueError("Empty response.")
+                # If response is empty or equals "error", consider it a failure.
+                if not response_text or response_text.lower() == "error":
+                    raise ValueError("Empty or error response.")
                 return response_text
+
             except Exception as e:
+                error_text = str(e).lower()
+                # Detect quota or rate limit errors.
+                if any(keyword in error_text for keyword in ["429", "quota", "rate limit", "resourceexhausted"]):
+                    logging.warning("Quota or rate limit error detected; forcing an extended wait of 120 seconds.")
+                    fixed_wait = 120  # Fixed wait time for quota errors.
+                    if attempt == retries:
+                        logging.error(f"Final attempt {attempt}: {e}. Returning error message.")
+                        return "Error: LLM generation failed after multiple attempts due to quota issues."
+                    logging.warning(f"Attempt {attempt}: {e}. Retrying in {fixed_wait} seconds.")
+                    time.sleep(fixed_wait)
+                    continue  # Skip the exponential backoff for this iteration.
+
+                # For other errors, use exponential backoff with jitter.
                 if attempt == retries:
-                    logging.error(f"Final attempt {attempt}: {e}. Skipping.")
-                    return "Error"
+                    logging.error(f"Final attempt {attempt}: {e}. Returning error message.")
+                    return "Error: LLM generation failed after multiple attempts."
                 jitter = random.uniform(0, 1)
                 sleep_time = min(wait_time * backoff_factor, max_wait)
                 logging.warning(f"Attempt {attempt}: {e}. Retrying in {sleep_time + jitter:.2f} seconds.")
                 time.sleep(sleep_time + jitter)
                 wait_time *= backoff_factor
-        return "Error"
+        return "Error: LLM generation failed after multiple attempts."
 
-    def extract_choice_from_answer(self, answer_text: str) -> str:
-        """
-        Extracts the choice number from the model's answer.
-
-        Args:
-            answer_text (str): The model's response.
-
-        Returns:
-            str: Extracted choice number or None.
-        """
-        patterns = [
-            r'The correct answer is[:\s]*([1-4])',
-            r'Answer\s*[:\s]*([1-4])',
-            r'^([1-4])\.',
-            r'\b([1-4])\b',
-        ]
-        for pat in patterns:
-            match = re.search(pat, answer_text, flags=re.IGNORECASE)
-            if match:
-                return match.group(1)
-        return None
-
-    def query_gemini_llm(self, question: str, choices: List[str]) -> str:
-        """
-        Queries the raw Gemini LLM for an answer.
-
-        Args:
-            question (str): The question text.
-            choices (List[str]): List of choice strings.
-
-        Returns:
-            str: The model's answer.
-        """
-        choices_text = "\n".join(choices)
-        prompt_text = f"""
-        You are an expert in O-RAN systems. A user has provided the following multiple-choice question:
-
-        Question: {question}
-
-        Choices:
-        {choices_text}
-
-        Please provide the correct answer choice number (1, 2, 3, or 4) only.
-        """
-        user_prompt = Content(
-            role="user",
-            parts=[Part.from_text(prompt_text)]
-        )
-        return self.safe_generate_content(user_prompt)
-
+    # ------------------------------------------------------------------
+    # (3) HELPER: Build prompt for final multiple-choice generation
+    #     We'll incorporate the core concept in the final prompt
+    # ------------------------------------------------------------------
     def generate_prompt_content_evaluation(
         self,
         query: str,
         choices: List[str],
-        chunks: List[Dict]
+        chunks: List[Dict],
+        core_concept: str
     ) -> Content:
         """
-        Generates prompt content for evaluation using RAG.
-
-        Args:
-            query (str): The question text.
-            choices (List[str]): List of choice strings.
-            chunks (List[Dict]): Retrieved text chunks.
-
-        Returns:
-            Content: The prompt content object.
+        Generates prompt content for evaluation using RAG, 
+        injecting the single core concept from Step-Back.
         """
-
-        context = "\n\n".join([f"Chunk {i+1}:\n{chunk['content']}" for i, chunk in enumerate(chunks)])
+        context = "\n\n".join([
+            f"Chunk {i+1}:\n{chunk['content']}" for i, chunk in enumerate(chunks)
+        ])
         choices_text = "\n".join(choices)
+
         prompt_text = f"""
-        You are an expert in O-RAN systems. Utilize the context to provide detailed and accurate answers to the user's queries.
+        You are an O-RAN expert. Focus on this core concept when forming your answer:
+        "{core_concept}"
 
-        Instruction:
-        Using the information provided in the context, please provide a logical and concise answer to the question below.
-
-        If the question presents multiple choice options, you must:
-        - State the correct choice by its number (e.g., "The correct answer is: 3") at the start of your answer.
+        Utilize the context below if relevant, then decide which choice is correct.
 
         Context:
         {context}
@@ -258,8 +277,6 @@ class Evaluator:
         {choices_text}
 
         Please provide the correct answer choice number (1, 2, 3, or 4) only.
-
-        Answer:
         """
         user_prompt = Content(
             role="user",
@@ -267,55 +284,171 @@ class Evaluator:
         )
         return user_prompt
 
+    # ------------------------------------------------------------------
+    # (4) RAG PIPELINE with STEP-BACK
+    # ------------------------------------------------------------------
     def query_rag_pipeline(self, question: str, choices: List[str]) -> str:
         """
-        Queries the RAG pipeline to get an answer.
-
-        Args:
-            question (str): The question text.
-            choices (List[str]): List of choice strings.
-
-        Returns:
-            str: The model's answer.
+        Queries the RAG pipeline to get an answer, but includes:
+        1) Step-Back: core concept extraction
+        2) Retrieval & Reranking
+        3) Final prompt referencing the concept
         """
         try:
-            # Step 1: Vector Search
+            # (A) STEP-BACK: Extract the single core concept
+            core_concept = self.generate_eval_core_concept(question)
+            logging.debug(f"[Step-Back] Concept: {core_concept}")
+
+            # (B) Vector Search
             retrieved_chunks = self.vector_searcher.vector_search(
                 index_endpoint_display_name=self.index_endpoint_display_name,
                 deployed_index_id=self.deployed_index_id,
                 query_text=question,
                 num_neighbors=self.num_neighbors,
             )
-
             if not retrieved_chunks:
                 logging.warning("No chunks retrieved for the query.")
                 return "No relevant information found."
 
-            # Step 2: Reranking
+            # (C) Reranking with concept
             reranked_chunks = self.reranker.rerank(
-                query=question,
+                query=core_concept,
                 records=retrieved_chunks,
             )
-            logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
-            
             if not reranked_chunks:
                 logging.warning("Reranking returned no results.")
                 return "No relevant information found after reranking."
 
-            # Step 3: Generate Prompt with Reranked Chunks
-            prompt_content = self.generate_prompt_content_evaluation(question, choices, reranked_chunks)
+            # (D) Build final prompt with concept + chunks
+            prompt_content = self.generate_prompt_content_evaluation(
+                query=question,
+                choices=choices,
+                chunks=reranked_chunks,
+                core_concept=core_concept
+            )
 
-            # Step 4: Generate Response from RAG Pipeline
-            assistant_response = self.safe_generate_content(prompt_content)
+            # (E) Generate final answer
+            assistant_response = self.safe_generate_content(prompt_content, retries=10, backoff_factor=2, max_wait=30)
             return assistant_response.strip() if assistant_response else "Error"
 
         except Exception as e:
             logging.error(f"Error in RAG pipeline for question '{question}': {e}", exc_info=True)
             return "Error"
+        
+    # ------------------------------------------------------------------
+    # (5) OR Evaluate with Retrieval Augmented Thoughts (RAT)
+    # ------------------------------------------------------------------
 
+    def query_rat_pipeline(self, question: str, choices: List[str]) -> str:
+        """
+        Uses the evaluation-specific RATProcessor (RATProcessorEval) to generate an answer for a multiple-choice question.
+        
+        Pipeline:
+        (A) Use RATProcessorEval (with iterative CoT refinement) to generate a chain-of-thought that incorporates both the question and the answer options.
+        (B) Build a final prompt that instructs the LLM to provide detailed, step-by-step reasoning and conclude with a final line in the format:
+                "Final Answer: X"
+            where X is one of 1, 2, 3, or 4.
+        
+        Returns:
+            A string representing the final LLM output.
+        """
+        try:
+            # (A) Use RATProcessorEval to generate the chain-of-thought with choices.
+            rat = RATProcessorEval(
+                vector_searcher=self.vector_searcher,
+                llm=self.generative_model,
+                generation_config=self.generation_config,
+                index_endpoint_display_name=self.index_endpoint_display_name,
+                deployed_index_id=self.deployed_index_id,
+                num_iterations=3,
+            )
+            conversation_history = []  # For evaluation, we typically have no history
+            final_cot = rat.process_query(question, conversation_history, choices=choices)
+
+            # (B) Summarize final_cot to remove extraneous or contradictory details.
+            #     This keeps the final extraction step focused.
+            bullet_summary_prompt = f"""
+            You are an expert at concise summarization. Summarize the following chain-of-thought into
+            a concise bullet list (3-5 bullets) capturing the key reasoning steps or facts only. 
+            Exclude tangential details. Output only the bullet list, no extra commentary:
+
+            Chain-of-Thought:
+            \"\"\"{final_cot}\"\"\"
+
+            Bullet List:"""
+
+            from vertexai.generative_models import Content, Part, GenerationConfig
+            bullet_summary_content = Content(role="user", parts=[Part.from_text(bullet_summary_prompt)])
+            
+            # Use a slightly lower temperature for summarization
+            bullet_summary_gen_config = GenerationConfig(
+                temperature=0.2,
+                top_p=0.9,
+                max_output_tokens=512
+            )
+            bullet_summary = self.safe_generate_content(
+                bullet_summary_content, 
+                retries=5, 
+                backoff_factor=2, 
+                max_wait=60
+            ).strip()
+
+            # (C) Build a final refine prompt re-injecting the question, choices, and bullet summary.
+            #     Then instruct to produce "Final Answer: X" in a single line.
+            choices_text = "\n".join(choices)
+            refine_prompt = f"""
+            You are an expert in O-RAN systems. Here are the question, the multiple-choice options, and a concise bullet-list summary 
+            of your chain-of-thought reasoning steps. Identify the single correct choice (1, 2, 3, or 4) with no extra commentary.
+
+            Original Question:
+            {question}
+
+            Answer Choices:
+            {choices_text}
+
+            Bullet-List Summary of Reasoning:
+            {bullet_summary}
+
+            Please output EXACTLY one line:
+
+            Final Answer: X
+
+            where X is the chosen number (1, 2, 3, or 4). 
+            No other text, disclaimers, or commentary.
+            """
+
+            refine_content = Content(role="user", parts=[Part.from_text(refine_prompt)])
+            
+            # A more deterministic final extraction with minimal tokens to avoid drifting
+            final_answer_gen_config = GenerationConfig(
+                temperature=0.0,
+                top_p=1.0,
+                max_output_tokens=64
+            )
+            refined_response = self.safe_generate_content(
+                refine_content, 
+                retries=5, 
+                backoff_factor=2, 
+                max_wait=60
+            ).strip()
+
+            if not refined_response:
+                logging.warning("[Eval] Final extraction step gave empty response; returning the bullet summary instead.")
+                return bullet_summary
+
+            logging.info(f"[Eval] Final Answer Extracted: {refined_response}")
+            return refined_response
+
+        except Exception as e:
+            logging.error(f"Error in RAT evaluation for question '{question}': {e}", exc_info=True)
+            return "Error"
+
+    # ------------------------------------------------------------------
+    # (5) Evaluate a single Q&A entry
+    # ------------------------------------------------------------------
     def evaluate_single_entry(self, entry: List[str], delay: float = 0.5) -> Dict:
         """
-        Evaluates a single Q&A entry using both RAG and Gemini LLM.
+        Evaluates a single Q&A entry using both RAG (with Step-Back) and Gemini LLM.
 
         Args:
             entry (List[str]): [question, choices, correct_answer]
@@ -329,15 +462,20 @@ class Evaluator:
             question, choices, correct_str = entry
             correct_choice = correct_str.strip()
 
-            # Query RAG
-            rag_full_answer = self.query_rag_pipeline(question, choices)
-            rag_pred_choice = self.extract_choice_from_answer(rag_full_answer)
-            rag_correct = rag_pred_choice == correct_choice
+            # Query RAG with Step-Back
+            # rag_full_answer = self.query_rag_pipeline(question, choices)
+            # rag_pred_choice = self.extract_choice_from_answer(rag_full_answer)
+            # rag_correct = (rag_pred_choice == correct_choice)
 
-            # Query Gemini
+            # Query RAG with RAT
+            rag_full_answer = self.query_rat_pipeline(question, choices)
+            rag_pred_choice = self.extract_choice_from_answer(rag_full_answer)
+            rag_correct = (rag_pred_choice == correct_choice)
+
+            # Query Gemini (no RAG)
             gemini_full_answer = self.query_gemini_llm(question, choices)
             gemini_pred_choice = self.extract_choice_from_answer(gemini_full_answer)
-            gemini_correct = gemini_pred_choice == correct_choice
+            gemini_correct = (gemini_pred_choice == correct_choice)
 
             return {
                 'Question': question,
@@ -359,6 +497,46 @@ class Evaluator:
                 'Gemini Correct': False,
             }
 
+    def extract_choice_from_answer(self, answer_text: str) -> str:
+        """
+        Extracts the choice number from the model's answer.
+        """
+        patterns = [
+            r'The correct answer is[:\s]*([1-4])',
+            r'Answer\s*[:\s]*([1-4])',
+            r'^([1-4])\.',
+            r'\b([1-4])\b',
+        ]
+        for pat in patterns:
+            match = re.search(pat, answer_text, flags=re.IGNORECASE)
+            if match:
+                return match.group(1)
+        return None
+
+    def query_gemini_llm(self, question: str, choices: List[str]) -> str:
+        """
+        Queries the raw Gemini LLM (no RAG) for an answer.
+        """
+        choices_text = "\n".join(choices)
+        prompt_text = f"""
+        You are an expert in O-RAN systems. A user has provided the following multiple-choice question:
+
+        Question: {question}
+
+        Choices:
+        {choices_text}
+
+        Please provide the correct answer choice number (1, 2, 3, or 4) only.
+        """
+        user_prompt = Content(
+            role="user",
+            parts=[Part.from_text(prompt_text)]
+        )
+        return self.safe_generate_content(user_prompt)
+
+    # ------------------------------------------------------------------
+    # (6) Evaluate Models in Parallel with Progress Bar and Save Results
+    # ------------------------------------------------------------------
     def evaluate_models_parallel(
         self,
         qna_dataset: List[List[str]],

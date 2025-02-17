@@ -86,12 +86,14 @@ class VectorSearcher:
                     text_content = chunk.get('content')
                     document_name = chunk.get('document_name')
                     page_number = chunk.get('page_number')
+                    meta = chunk.get('metadata', {})
                     if chunk_id and text_content:
                         id_to_chunk[chunk_id] = {
                             'id': chunk_id,
                             'content': text_content,
                             'document_name': document_name,
-                            'page_number': page_number
+                            'page_number': page_number,
+                            'metadata': meta
                         }
             logging.info(f"Loaded {len(id_to_chunk)} chunks into memory.")
             return id_to_chunk
@@ -183,12 +185,14 @@ class VectorSearcher:
                     text_content = chunk_data.get('content', "Content not found.")
                     document_name = chunk_data.get('document_name', "Unknown Document")
                     page_number = chunk_data.get('page_number', "Unknown Page")
+                    metadata = chunk_data.get('metadata', {})
                     retrieved_chunks.append({
                         'id': datapoint_id,
                         'distance': distance,
                         'content': text_content,
                         'document_name': document_name,
-                        'page_number': page_number
+                        'page_number': page_number,
+                        'metadata': metadata,
                     })
             logging.info(f"Retrieved {len(retrieved_chunks)} chunks for the query.")
             return retrieved_chunks

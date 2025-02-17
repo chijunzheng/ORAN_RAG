@@ -8,13 +8,14 @@ gcp:
   credentials_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My\ Drive/1.Projects/ORAN_RAG/oranrag-646fb8ae6b7f.json"
 
 paths:
-  documents: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Documents/"
-  embeddings_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Embeddings/"
+  documents: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Documents"
+  embeddings_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Embeddings"
+  yang_dir: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Yang"
 
 vector_search:
-  index_display_name: "oran_rag_index"  # Name for the index creation
-  endpoint_display_name: "oran_rag_index_endpoint"  # Name for the index deployment
-  deployed_index_id: "oran_rag_index_deployed" # Name for the deployed index
+  index_display_name: "oran_rag_index_yang"  # Name for the index creation
+  endpoint_display_name: "oran_rag_index_yang_endpoint"  # Name for the index deployment
+  deployed_index_id: "oran_rag_index_yang_deployed" # Name for the deployed index
 
   # Parameters for index creation
   index_description: "Index for O-RAN document embeddings"
@@ -32,7 +33,7 @@ vector_search:
   max_replica_count: 2
 
   # Parameters for search
-  num_neighbors: 30
+  num_neighbors: 40
 
 ranking:
   ranking_config: "default_ranking_config"  
@@ -46,15 +47,15 @@ chunking:
   min_char_count: 100
 
 generation:
-  temperature: 0.7
+  temperature: 0.3
   top_p: 0.9
-  max_output_tokens: 2000
+  max_output_tokens: 8192
 
 logging:
-  log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/log/oran_rag.log"  # User-defined path for log files
+  log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/log/oran_rag.log"  # User-defined path for log files
 
 evaluation:
   num_questions: 3243
-  excel_file_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Evaluation/evaluation_results.xlsx"
+  excel_file_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Evaluation/evaluation_results.xlsx"
   max_workers: 1
-  plot_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/Evaluation/accuracy_plots.png"
+  plot_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Evaluation/accuracy_plots.png"

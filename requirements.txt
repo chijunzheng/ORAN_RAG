@@ -14,3 +14,4 @@ pandas
 ftfy
 flask
 flask-session
+tiktoken

@@ -1,7 +1,7 @@
-# src/chatbot/chatbot.py
-
+import re
 import uuid
 import logging
+import tiktoken
 from typing import List, Dict
 from google.cloud import firestore, aiplatform
 from vertexai.generative_models import (
@@ -14,6 +14,14 @@ from vertexai.preview.language_models import TextEmbeddingModel, TextEmbeddingIn
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from src.evaluation.evaluator import Evaluator
 from src.vector_search.reranker import Reranker
+from src.chatbot.yang_processor import YangProcessor
+from src.chatbot.rat_processor import RATProcessor
+
+
+
+# ----------------------------------------------------------------------------------
+# Chatbot Class
+# ----------------------------------------------------------------------------------
 
 class Chatbot:
     def __init__(
@@ -28,27 +36,13 @@ class Chatbot:
         generation_temperature: float,
         generation_top_p: float,
         generation_max_output_tokens: int,
-        vector_searcher,  
+        vector_searcher,
         credentials,
         num_neighbors: int,
         reranker: Reranker
     ):
         """
         Initializes the Chatbot with specific configuration parameters.
-        
-        Args:
-            project_id (str): Google Cloud project ID.
-            location (str): Google Cloud location (e.g., 'us-central1').
-            bucket_name (str): Name of the GCS bucket.
-            embeddings_path (str): Path within the GCS bucket for embeddings.
-            bucket_uri (str): URI of the GCS bucket.
-            index_endpoint_display_name (str): Name of the index endpoint.
-            deployed_index_id (str): ID of the deployed index.
-            generation_temperature (float): Temperature parameter for generation.
-            generation_top_p (float): Top-p parameter for generation.
-            generation_max_output_tokens (int): Maximum tokens for generation.
-            vector_searcher (VectorSearcher): Instance of VectorSearcher for performing searches.
-            reranker (Reranker): Instance of Reranker for reranking results.
         """
         try:
             self.project_id = project_id
@@ -63,7 +57,11 @@ class Chatbot:
             self.reranker = reranker
 
             # Initialize AI Platform
-            aiplatform.init(project=self.project_id, location=self.location, credentials=credentials)
+            aiplatform.init(
+                project=self.project_id, 
+                location=self.location, 
+                credentials=credentials
+            )
             logging.info(f"Initialized Chatbot with project_id='{self.project_id}', location='{self.location}', bucket_uri='{self.bucket_uri}'")
 
             # Initialize Firestore Client
@@ -81,6 +79,15 @@ class Chatbot:
                 max_output_tokens=generation_max_output_tokens,
             )
 
+            self.yang_generation_config = GenerationConfig(
+                temperature=0,
+                top_p=1,
+                max_output_tokens=generation_max_output_tokens,
+            )
+
+            # Instantiate the YangProcessor
+            self.yang_processor = YangProcessor(vector_searcher=vector_searcher)
+
         except KeyError as ke:
             logging.error(f"Missing configuration key: {ke}", exc_info=True)
             raise
@@ -88,18 +95,15 @@ class Chatbot:
             logging.error(f"Failed to initialize Chatbot: {e}", exc_info=True)
             raise
 
+    # ----------------------------------------------------------------------------------
+    # Conversation Management
+    # ----------------------------------------------------------------------------------
     def generate_session_id(self) -> str:
         """Generates a unique session ID."""
         return str(uuid.uuid4())
 
     def save_conversation(self, session_id: str, conversation_history: List[Dict]):
-        """
-        Saves the conversation history to Firestore.
-        
-        Args:
-            session_id (str): Unique session identifier.
-            conversation_history (List[Dict]): List of conversation turns.
-        """
+        """Saves the conversation history to Firestore."""
         try:
             self.db.collection('conversations').document(session_id).set({
                 'history': conversation_history
@@ -110,15 +114,7 @@ class Chatbot:
             raise
 
     def load_conversation(self, session_id: str) -> List[Dict]:
-        """
-        Loads the conversation history from Firestore.
-        
-        Args:
-            session_id (str): Unique session identifier.
-        
-        Returns:
-            List[Dict]: List of conversation turns.
-        """
+        """Loads the conversation history from Firestore."""
         try:
             doc = self.db.collection('conversations').document(session_id).get()
             if doc.exists:
@@ -132,177 +128,305 @@ class Chatbot:
             logging.error(f"Failed to load conversation history: {e}", exc_info=True)
             raise
 
-    def generate_prompt_content(self, query: str, chunks: List[Dict], conversation_history: List[Dict]) -> Content:
+
+
+    # ----------------------------------------------------------
+    # YANG Analysis API (Query Translation, Filtering, Stitching)
+    # ----------------------------------------------------------
+    def get_yang_analysis(self, query: str, yang_chunks: List[Dict]) -> str:
         """
-        Generates the prompt content for the LLM.
-        
-        Args:
-            query (str): User's query.
-            chunks (List[Dict]): Retrieved text chunks.
-            conversation_history (List[Dict]): Past conversation history.
-        
-        Returns:
-            Content: The prompt content object.
+        Uses YangProcessor to parse the query, filter and stitch YANG chunks,
+        then calls the generative model to produce an analysis.
         """
+        processor = YangProcessor()
+        return processor.get_analysis(query, yang_chunks, self.generative_model, self.yang_generation_config)
+
+
+    # ----------------------------------------------------------------------------------
+    # Vector Search & LLM Flow
+    # ----------------------------------------------------------------------------------
+    
+    def _convert_to_search_format(self, chunk_data: Dict) -> Dict:
+        """
+        Converts a chunk record to a format suitable for reranking.
+        """
+        return {
+            'id': chunk_data['id'],
+            'content': chunk_data.get('content', "No content"),
+            'document_name': chunk_data.get('document_name', "Unknown doc"),
+            'page_number': chunk_data.get('page_number', "Unknown page"),
+            'metadata': chunk_data.get('metadata', {}),
+        }
+    
+    def generate_core_concept(self, user_query: str, conversation_history: List[Dict]) -> str:
+        truncated_history = conversation_history[-3:] 
+        conversation_text = ""
+        for turn in truncated_history:
+            conversation_text += f"User: {turn['user']}\nAssistant: {turn['assistant']}\n"
+
+        prompt = f"""
+        You are an O-RAN expert. Analyze the user's query below 
+        and identify the single core concept needed to answer it.
+
+        Conversation (recent):
+        {conversation_text}
+
+        User Query: {user_query}
+
+        Instructions:
+        1. Provide a concise concept or principle behind this query.
+        2. Do not provide any further explanation—only briefly describe the concept.
+
+        Concept:
+        """
+        prompt_content = Content(
+            role="user",
+            parts=[Part.from_text(prompt)]
+        )
+
+        concept_generation_config = GenerationConfig(
+            temperature=0.0,
+            top_p=1.0,
+            max_output_tokens=128 
+        )
+
+        try:
+            response = self.generative_model.generate_content(
+                prompt_content,
+                generation_config=concept_generation_config,
+            )
+            core_concept = response.text.strip()
+            return core_concept if core_concept else "O-RAN Architecture (General)"
+        except Exception as e:
+            logging.error(f"Error generating core concept: {e}", exc_info=True)
+            return "O-RAN Architecture (General)"
+
+    def generate_prompt_content(self, query: str, concept: str, chunks: List[Dict], conversation_history: List[Dict]) -> Content:
+        """
+        Builds the final user prompt. The prompt includes the ORAN context and—only if the query is
+        explicitly YANG related—the YANG context block is inserted.
+        """
+        # (1) Build conversation history text from the last 5 turns.
         history_text = ""
         for turn in conversation_history[-5:]:
             history_text += f"User: {turn['user']}\nAssistant: {turn['assistant']}\n"
         history_text += f"User: {query}\n"
 
-        context = "\n\n".join([
-            f"Chunk {i+1} ({chunk['document_name']}, Page {chunk['page_number']}):\n{chunk['content']}"
-            for i, chunk in enumerate(chunks)
+        # (2) Separate the chunks into ORAN and YANG chunks.
+        oran_doc_chunks = []
+        yang_doc_chunks = []
+        for chunk in chunks:
+            meta = chunk.get('metadata', {})
+            doc_type = meta.get('doc_type', 'unknown')
+            if doc_type == 'yang_model':
+                yang_doc_chunks.append(chunk)
+            else:
+                oran_doc_chunks.append(chunk)
+
+        # (3) Build the ORAN context from the ORAN document chunks.
+        oran_context = "\n\n".join([
+            f"Chunk {i+1} (File: {chunk.get('document_name','N/A')}, Version: {chunk.get('metadata', {}).get('version','unknown')}, "
+            f"Workgroup: {chunk.get('metadata', {}).get('workgroup','unknown')}, Subcategory: {chunk.get('metadata', {}).get('subcategory','unknown')}, "
+            f"Page: {chunk.get('page_number','N/A')}):\n{chunk.get('content','No content')}"
+            for i, chunk in enumerate(oran_doc_chunks)
         ])
+       
 
+        # (4) Build the final prompt text with the reference rules intact.
         prompt_text = f"""
-        <purpose>
-            You are an expert in O-RAN systems. Utilize the conversation history, context, and if necessary, pre-trained knowledge to provide detailed and accurate answers to the user's queries.
-        </purpose>
+            <purpose>
+                You are an expert in O-RAN systems. Always start by focusing on the "core concept" below 
+                to keep the reasoning aligned. Then use conversation history and the context 
+                (plus pre-trained knowledge if necessary) to provide an accurate answer.
+            </purpose>
 
-        <instructions>
-            <instruction>Use the context, conversation history, and if necessary, pre-trained knowledge to form a concise, thorough response.</instruction>
-            <instruction>Cover all relevant aspects in a clear, step-by-step manner.</instruction>
-            <instruction>Follow the specified answer format, headings, and style guides.</instruction>
-            <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
-            <instruction>Do not enclose the entire response within code blocks. Only use code blocks for specific code snippets or technical examples if necessary.</instruction>
-        </instructions>
+            <core-concept>
+            {concept}
+            </core-concept>
 
-        <context>
-        {context}
-        </context>
+            <instructions>
+                <instruction>Use the concept and the context to form a concise, thorough response.</instruction>
+                <instruction>Cover all relevant aspects in a clear, step-by-step manner.</instruction>
+                <instruction>Follow the specified answer format, headings, and style guides.</instruction>
+                <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
+            </instructions>
 
-        <conversation-history>
-        {history_text}
-        </conversation-history>
+            <context>
+            {oran_context}
+            </context>
 
-        <question>
-        {query}
-        </question>
+            <conversation-history>
+            {history_text}
+            </conversation-history>
 
-        <sections>
-            <answer-format>
-                Begin with a brief introduction summarizing the entire answer.
-                Use high-level headings (##) and subheadings (###) to organize content.
-                Present information in bullet points or numbered lists to illustrate hierarchy.
+            <question>
+            {query}
+            </question>
 
-                **References Rule**:
-                - **Do NOT** place references after individual bullets or sentences.
-                - **Do NOT** place references inline within paragraphs.
-                - Instead, gather all the references at the **end of the relevant heading** (## or ###) in **one combined block**.
-                - Format references in smaller font, using HTML `<small>` tags and indentation. For example:
-                <small>
-                    &nbsp;&nbsp;*(Reference: [Document Name], page [Page Number(s)])*
-                    &nbsp;&nbsp;*(Reference: [Another Document], page [Page Number(s)])*
-                </small>
-            </answer-format>
-            <markdown-guidelines>
-                <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
-                <markdown-guideline>Use bullet points ( - or * ) for sub-steps and indent consistently.</markdown-guideline>
-                <markdown-guideline>Use **bold** for emphasis and *italics* for subtle highlights.</markdown-guideline>
-                <markdown-guideline>For references, use HTML `<small>` tags to reduce font size and indent them using spaces.</markdown-guideline>
-            </markdown-guidelines>
-            <important-notes>
-                <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
-                <important-note>Be logical and concise, while providing as much details as possible.</important-note>
-                <important-note>Ensure the explanation is presented step-by-step, covering relevant stages.</important-note>
-            </important-notes>
-            <audience>
-                Engineers new to O-RAN systems.
-            </audience>
-            <tone>
-                Professional and informative.
-            </tone>
-        </sections>
+            <sections>
+                <answer-format>
+                    Structure your answer with high-level headings (##) and subheadings (###). Present information in bullet points or numbered lists.
+                    **Reference Rules**:
+                    - **Do NOT** place references after individual bullets or sentences.
+                    - **Do NOT** place references inline within paragraphs.                    
+                    - Instead, gather all the references at the **end of the relevant heading** (## or ###) in **one combined block**.
+                    - Format references in smaller font, using HTML `<small>` tags and indentation. For example:
+                            <small>
+                                &nbsp;&nbsp;*(Reference: [Document Name], page [Page Number(s)]; [Another Document], page [Page Number(s)])*
+                            </small>
+                </answer-format>
+                <markdown-guidelines>
+                    <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
+                    <markdown-guideline>Use bullet points for lists and maintain consistent indentation.</markdown-guideline>
+                </markdown-guidelines>
+                <important-notes>
+                    <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
+                    <important-note>Be logical and concise, while providing as much detail as possible.</important-note>
+                    <important-note>Ensure the explanation is presented step-by-step, covering relevant stages.</important-note>
+                </important-notes>
+                <audience>
+                    Engineers new to O-RAN.
+                </audience>
+                <tone>
+                    Professional and informative.
+                </tone>
+            </sections>
 
-        <answer>
+            <answer>
 
-        </answer>
-        """
-        user_prompt_content = Content(
+            </answer>
+            """
+        return Content(
             role="user",
-            parts=[
-                Part.from_text(prompt_text)
-            ]
+            parts=[Part.from_text(prompt_text)]
         )
-        return user_prompt_content
 
     def generate_response(self, prompt_content: Content) -> str:
-        """
-        Generates a response from the generative model.
-        
-        Args:
-            prompt_content (Content): The prompt content object.
-        
-        Returns:
-            str: The assistant's response.
-        """
         try:
             response = self.generative_model.generate_content(
                 prompt_content,
                 generation_config=self.generation_config,
             )
             assistant_response = response.text.strip()
-
-            # Remove any wrapping code blocks from the response
+            # Remove code block markers if present.
             if assistant_response.startswith("```") and assistant_response.endswith("```"):
                 lines = assistant_response.split("\n")
                 if len(lines) >= 3:
-                    # Remove the first and last lines (```)
                     assistant_response = "\n".join(lines[1:-1])
-            
             logging.debug("Generated assistant response.")
             return assistant_response
         except Exception as e:
             logging.error(f"Error generating response: {e}", exc_info=True)
             return "I'm sorry, I encountered an error while processing your request."
 
+    # --------------------------------------------------------
+    # Main Entry: get_response
+    # --------------------------------------------------------
     def get_response(self, user_query: str, conversation_history: List[Dict]) -> str:
         """
-        Processes the user query along with conversation history and returns the chatbot response.
-        
-        Args:
-            user_query (str): The user's query.
-            conversation_history (List[Dict]): List of previous conversation turns.
-        
-        Returns:
-            str: The chatbot's response.
+        Main entry point. 
+        Depending on user_query:
+          - If listing YANG inventory, return a summary of modules.
+          - If comparing vendor packages, call compare_vendor_packages.
+          - If referencing a specific YANG file, reassemble it.
+          - Otherwise, fallback to vector search + re-ranking + final generation.
         """
         try:
-            # 1. Retrieve relevant chunks using vector search
-            retrieved_chunks = self.vector_searcher.vector_search(
+            # 1) YANG or vendor-specific or ORAN queries => YangProcessor
+            if "yang" in user_query.lower() or "24a" in user_query.lower() or "24b" in user_query.lower() and "oran" in user_query.lower():
+                # Use the same vector_searcher-based YangProcessor
+                all_yang_chunks = list(self.vector_searcher.chunks.values())
+                return self.yang_processor.get_analysis(
+                    query=user_query,
+                    yang_chunks=all_yang_chunks,
+                    llm=self.generative_model,
+                    generation_config=self.yang_generation_config
+                )
+            
+            # (2) Otherwise, use RATProcessor first to generate a preliminary answer.
+            logging.info("Using RATProcessor to generate preliminary answer.")
+            from src.chatbot.rat_processor import RATProcessor
+            rat = RATProcessor(
+                vector_searcher=self.vector_searcher,
+                llm=self.generative_model,
+                generation_config=self.generation_config,
                 index_endpoint_display_name=self.index_endpoint_display_name,
                 deployed_index_id=self.deployed_index_id,
-                query_text=user_query,
-                num_neighbors=self.num_neighbors
+                num_iterations=3
             )
-            logging.info(f"Retrieved {len(retrieved_chunks)} chunks for the query.")
+            revised_cot = rat.process_query(user_query, conversation_history)
+            logging.info(f"Preliminary answer (first 200 chars): {revised_cot[:200]}...")
 
-            if not retrieved_chunks:
-                logging.warning("No chunks retrieved for the query.")
-                return "I'm sorry, I couldn't find relevant information to answer your question."
+            # (3) Build a final "refine" prompt that references the final CoT, query, and conversation history.
+            #     We skip any extra vector search or reranking step here.
+            # Gather last 5 conversation turns:
+            history_text = ""
+            for turn in conversation_history[-5:]:
+                history_text += f"User: {turn.get('user')}\nAssistant: {turn.get('assistant')}\n"
+            history_text += f"User: {user_query}\n"
 
-            # 2. Rerank the retrieved chunks
-            reranked_chunks = self.reranker.rerank(
-                query=user_query,
-                records=retrieved_chunks
-            )
-            logging.info(f"Reranked to {len(reranked_chunks)} top chunks.")
+            refine_prompt = f"""
+            <purpose>
+            You are an advanced O-RAN expert. Refine the following chain-of-thought into a final, well-structured answer.
+            Use the conversation history for context and clarity. Do not insert references inline after bullets; place them in a consolidated block at the end of each relevant section.
+            </purpose>                
+            <instructions>
+                <instruction>Structure the answer with high-level headings (##) and subheadings (###). Present information in bullet points or numbered lists.</instruction>
+                <instruction>Do NOT include reference citations immediately after individual bullet points or inline within paragraphs.</instruction>
+                <instruction>Instead, compile all references at the end of each section in one consolidated block formatted with HTML <small> tags.</instruction>
+                <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
+            </instructions>
+            <sections>
+                <answer-format>
+                    - Structure the answer with high-level headings (##) and subheadings (###). Present information in bullet points or numbered lists.
+                    **Reference Rules**:
+                    - **Do NOT** place references after individual bullets or sentences.
+                    - **Do NOT** place references inline within paragraphs.                    
+                    - Instead, gather all the references at the **end of the relevant heading** (## or ###) in **one combined block**.
+                    - When listing references, include the actual document name and page number(s) as provided in the retrieved context.
+                    - Format references in smaller font, using HTML `<small>` tags and indentation. For example:
+                            <small>
+                                &nbsp;&nbsp;*(Reference: [Document Name], page [Page Number(s)]; [Another Document], page [Page Number(s)])*
+                            </small>
+                </answer-format>
+                <markdown-guidelines>
+                    <markdown-guideline>Use `##` for main sections and `###` for subsections.</markdown-guideline>
+                    <markdown-guideline>Use bullet points or numbered lists and maintain consistent indentation.</markdown-guideline>
+                </markdown-guidelines>
+                <important-notes>
+                    <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
+                    <important-note>Be logical and concise, while providing as much detail as possible.</important-note>
+                    <important-note>Ensure the explanation is presented step-by-step, covering relevant stages.</important-note>
+                </important-notes>
+                <audience>
+                    Engineers new to O-RAN.
+                </audience>
+                <tone>
+                    Professional and informative.
+                </tone>
+            </sections>
+            
+            <Revised Chain-of-Thought>
+            {revised_cot}
+            </Revised Chain-of-Thought>
 
-            if not reranked_chunks:
-                logging.warning("Reranking returned no results.")
-                return "I'm sorry, I couldn't find relevant information after reranking."
+            <conversation-history>
+            {conversation_history}
+            </conversation-history>
 
-            # 3. Generate prompt with reranked chunks and conversation history
-            prompt_content = self.generate_prompt_content(
-                query=user_query,
-                chunks=reranked_chunks,
-                conversation_history=conversation_history
-            )
+            User Query:
+            {user_query}
 
-            # 4. Generate response from the model
-            assistant_response = self.generate_response(prompt_content)
+            <answer>
 
-            return assistant_response.strip() if assistant_response else "I'm sorry, I couldn't generate a response."
+            </answer>
+            """
+            content = Content(role="user", parts=[Part.from_text(refine_prompt)])
+            final_response = self.generative_model.generate_content(content, generation_config=self.generation_config)
+            final_answer = final_response.text.strip() if final_response and final_response.text.strip() else revised_cot
+        
+
+            return final_answer
 
         except Exception as e:
             logging.error(f"Error in get_response: {e}", exc_info=True)

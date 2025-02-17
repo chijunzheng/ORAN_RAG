@@ -2,85 +2,142 @@
 
 import json
 import logging
-from google.cloud import storage
 from typing import List, Dict
+from google.cloud import storage
 from vertexai.preview.language_models import TextEmbeddingModel, TextEmbeddingInput
 from google.oauth2.credentials import Credentials
 
+# Import tiktoken for accurate token counting.
+try:
+    import tiktoken
+except ImportError:
+    logging.warning("tiktoken is not installed. Install it with 'pip install tiktoken' for accurate token counting.")
+    tiktoken = None
+
+def count_tokens(text: str) -> int:
+    """
+    Uses tiktoken to count tokens for a given text.
+    If tiktoken is unavailable, falls back to a simple whitespace split.
+    """
+    if tiktoken:
+        try:
+            # Try to use the encoding specific for "text-embedding-005"
+            encoding = tiktoken.encoding_for_model("text-embedding-005")
+        except Exception:
+            # Fallback to cl100k_base encoding
+            encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(text))
+    else:
+        return len(text.split())
+
 class Embedder:
+    # Maximum number of chunks per batch (API parameter)
     MAX_BATCH_SIZE = 25
-    def __init__(self, project_id: str, 
-                 location: str, 
-                 bucket_name: str, 
-                 embeddings_path: str,
-                 credentials: Credentials = None):
+    # The API supports up to 20,000 tokens per call.
+    MAX_API_TOKENS = 20000
+    # We use a safe limit below that (e.g. 19,000 tokens) for our batching logic.
+    SAFE_TOKEN_LIMIT = 19000  
+
+    def __init__(self, project_id: str, location: str, bucket_name: str, embeddings_path: str, credentials: Credentials = None):
         """
         Initializes the Embedder with Google Cloud details.
-        
-        Args:
-            project_id (str): Google Cloud project ID.
-            location (str): Google Cloud region.
-            bucket_name (str): GCS bucket name.
-            embeddings_path (str): Path within the bucket to store embeddings.
         """
         self.project_id = project_id
         self.location = location
         self.bucket_name = bucket_name
         self.embeddings_path = embeddings_path
-        
-        # Initialize the storage client with credentials if provided
+
         if credentials:
             self.storage_client = storage.Client(project=self.project_id, credentials=credentials)
         else:
             self.storage_client = storage.Client(project=self.project_id)
-
         self.bucket = self.storage_client.bucket(self.bucket_name)
-        self.embedding_model = TextEmbeddingModel.from_pretrained("text-embedding-005")
 
-    def generate_and_store_embeddings(self, chunks: List[Dict], local_jsonl_path: str = "embeddings.jsonl", batch_size: int = 10):
+        self.embedding_model = TextEmbeddingModel.from_pretrained("text-embedding-005")
+        logging.info("Initialized TextEmbeddingModel from 'text-embedding-005'")
+
+    def generate_and_store_embeddings(self, chunks: List[Dict], local_jsonl_path: str = "embeddings.jsonl", batch_size: int = 9):
         """
-        Generates embeddings for text chunks in batches and uploads them to GCS as a JSONL file.
+        Generates embeddings for text chunks in batches using dynamic batching.
+        The method ensures that the total token count in each API call does not exceed our SAFE_TOKEN_LIMIT.
         
         Args:
-            chunks (List[Dict]): List of text chunks with 'id' and 'text'.
-            local_jsonl_path (str, optional): Local path to store the JSONL file. Defaults to "embeddings.jsonl".
-            batch_size (int, optional): Number of chunks to process in each batch. Defaults to 1000.
+            chunks (List[Dict]): List of chunk dictionaries (each with 'id' and 'content').
+            local_jsonl_path (str, optional): Path to save the JSONL file.
+            batch_size (int, optional): Maximum number of chunks per batch.
         """
-        # Ensure batch_size does not exceed MAX_BATCH_SIZE
         if batch_size > self.MAX_BATCH_SIZE:
-            logging.warning(f"Requested batch_size {batch_size} exceeds MAX_BATCH_SIZE {self.MAX_BATCH_SIZE}. Setting batch_size to {self.MAX_BATCH_SIZE}.")
+            logging.warning(f"Requested batch_size {batch_size} exceeds MAX_BATCH_SIZE {self.MAX_BATCH_SIZE}. Using {self.MAX_BATCH_SIZE} instead.")
             batch_size = self.MAX_BATCH_SIZE
 
-        logging.info("Starting embeddings generation with batching.")
+        logging.info("Starting embeddings generation with dynamic batching.")
+        results = []
+        total_chunks = len(chunks)
+        i = 0
+        batch_num = 1
+
+        while i < total_chunks:
+            current_batch = []
+            current_batch_tokens = 0
+
+            # Accumulate chunks into the current batch while ensuring the batch token count stays under SAFE_TOKEN_LIMIT.
+            while i < total_chunks and len(current_batch) < batch_size:
+                chunk = chunks[i]
+                tokens = count_tokens(chunk['content'])
+
+                # If a single chunk exceeds the safe limit, trim it to SAFE_TOKEN_LIMIT tokens.
+                if tokens > self.SAFE_TOKEN_LIMIT:
+                    logging.warning(f"Chunk {chunk['id']} has {tokens} tokens, exceeding the safe limit. Trimming to {self.SAFE_TOKEN_LIMIT} tokens.")
+                    words = chunk['content'].split()
+                    # Trim by word; note that this is approximate.
+                    trimmed_content = " ".join(words[:self.SAFE_TOKEN_LIMIT])
+                    chunk['content'] = trimmed_content
+                    tokens = count_tokens(chunk['content'])
+
+                # If the batch is non-empty and adding this chunk would exceed the safe limit, break to process the batch.
+                if current_batch and (current_batch_tokens + tokens > self.SAFE_TOKEN_LIMIT):
+                    break
+
+                current_batch.append(chunk)
+                current_batch_tokens += tokens
+                i += 1
+
+            logging.info(f"Processing batch {batch_num}: {len(current_batch)} chunks with total token count {current_batch_tokens}.")
+            batch_num += 1
+
+            try:
+                embedding_inputs = [
+                    TextEmbeddingInput(task_type="RETRIEVAL_DOCUMENT", text=chunk['content'])
+                    for chunk in current_batch
+                ]
+                embeddings = self.embedding_model.get_embeddings(embedding_inputs)
+            except Exception as e:
+                logging.error(f"Failed to generate embeddings for batch starting at index {i}: {e}", exc_info=True)
+                raise
+
+            # Pair each embedding with its chunk ID.
+            for chunk, embedding in zip(current_batch, embeddings):
+                results.append({
+                    "id": chunk['id'],
+                    "embedding": embedding.values
+                })
+
+        # Save the embeddings to a JSONL file.
         try:
             with open(local_jsonl_path, 'w', encoding='utf-8') as f:
-                for i in range(0, len(chunks), batch_size):
-                    batch = chunks[i:i + batch_size]
-                    embedding_inputs = [
-                        TextEmbeddingInput(task_type="RETRIEVAL_DOCUMENT", text=chunk['content']) for chunk in batch
-                    ]
-                    embeddings = self.embedding_model.get_embeddings(embedding_inputs)
-                    
-                    for chunk, embedding in zip(batch, embeddings):
-                        embedding_data = {
-                            "id": chunk['id'],
-                            "embedding": embedding.values
-                        }
-                        f.write(json.dumps(embedding_data) + '\n')
-                        logging.debug(f"Generated and wrote embedding for {chunk['id']}")
-                    
-                    logging.info(f"Processed batch {i // batch_size + 1} with {len(batch)} chunks.")
-            
+                for record in results:
+                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
             logging.info(f"Embeddings saved to {local_jsonl_path}")
         except Exception as e:
-            logging.error(f"Failed to save embeddings to {local_jsonl_path}: {e}")
+            logging.error(f"Failed to save embeddings to {local_jsonl_path}: {e}", exc_info=True)
             raise
 
-        # Upload to GCS
+        # Upload the JSONL file to GCS.
         try:
-            embeddings_blob = self.bucket.blob(f"{self.embeddings_path}embeddings.json")
+            destination_blob_name = f"{self.embeddings_path}embeddings.json"
+            embeddings_blob = self.bucket.blob(destination_blob_name)
             embeddings_blob.upload_from_filename(local_jsonl_path, content_type="application/json")
-            logging.info(f"Uploaded embeddings to GCS at {embeddings_blob.name}")
+            logging.info(f"Uploaded embeddings to GCS at {destination_blob_name}")
         except Exception as e:
-            logging.error(f"Failed to upload embeddings to GCS: {e}")
+            logging.error(f"Failed to upload embeddings to GCS: {e}", exc_info=True)
             raise
