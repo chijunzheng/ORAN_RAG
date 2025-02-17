@@ -362,24 +362,43 @@ class Evaluator:
                 deployed_index_id=self.deployed_index_id,
                 num_iterations=3,
             )
-            conversation_history = []  # For evaluation, we assume an empty history.
+            conversation_history = []  # For evaluation, we typically have no history
             final_cot = rat.process_query(question, conversation_history, choices=choices)
-            logging.info(f"[Eval] Final CoT (first 200 chars): {final_cot[:200]}")
 
-            # (B) Build the final prompt.
-            # Format the choices with numbers.
+            # (B) Summarize final_cot to remove extraneous or contradictory details.
+            #     This keeps the final extraction step focused.
+            bullet_summary_prompt = f"""
+            You are an expert at concise summarization. Summarize the following chain-of-thought into
+            a concise bullet list (3-5 bullets) capturing the key reasoning steps or facts only. 
+            Exclude tangential details. Output only the bullet list, no extra commentary:
+
+            Chain-of-Thought:
+            \"\"\"{final_cot}\"\"\"
+
+            Bullet List:"""
+
+            from vertexai.generative_models import Content, Part, GenerationConfig
+            bullet_summary_content = Content(role="user", parts=[Part.from_text(bullet_summary_prompt)])
+            
+            # Use a slightly lower temperature for summarization
+            bullet_summary_gen_config = GenerationConfig(
+                temperature=0.2,
+                top_p=0.9,
+                max_output_tokens=512
+            )
+            bullet_summary = self.safe_generate_content(
+                bullet_summary_content, 
+                retries=5, 
+                backoff_factor=2, 
+                max_wait=60
+            ).strip()
+
+            # (C) Build a final refine prompt re-injecting the question, choices, and bullet summary.
+            #     Then instruct to produce "Final Answer: X" in a single line.
             choices_text = "\n".join(choices)
-
-            # Instruct the model to produce detailed reasoning and then output a final line that reads exactly:
-            # "Final Answer: X" where X is one of the allowed numbers.
             refine_prompt = f"""
-            You are an expert in O-RAN systems. Below is the original question, the answer choices, and your final chain-of-thought reasoning.
-            Based on all this context, output ONLY a single line that reads exactly:
-
-            Final Answer: X
-
-            where X is one of 1, 2, 3, or 4 corresponding to the correct answer choice.
-            Do not include any additional commentary or text.
+            You are an expert in O-RAN systems. Here are the question, the multiple-choice options, and a concise bullet-list summary 
+            of your chain-of-thought reasoning steps. Identify the single correct choice (1, 2, 3, or 4) with no extra commentary.
 
             Original Question:
             {question}
@@ -387,16 +406,39 @@ class Evaluator:
             Answer Choices:
             {choices_text}
 
-            Final Chain-of-Thought:
-            {final_cot}
+            Bullet-List Summary of Reasoning:
+            {bullet_summary}
 
-            Final Answer:"""
-            prompt_content = Content(role="user", parts=[Part.from_text(refine_prompt)])
+            Please output EXACTLY one line:
+
+            Final Answer: X
+
+            where X is the chosen number (1, 2, 3, or 4). 
+            No other text, disclaimers, or commentary.
+            """
+
+            refine_content = Content(role="user", parts=[Part.from_text(refine_prompt)])
             
-            refined_response = self.safe_generate_content(prompt_content, retries=10, backoff_factor=2, max_wait=300)
-            final_answer = refined_response.strip()
-            logging.info(f"[Eval] Final Answer Extracted: {final_answer}")
-            return final_answer
+            # A more deterministic final extraction with minimal tokens to avoid drifting
+            final_answer_gen_config = GenerationConfig(
+                temperature=0.0,
+                top_p=1.0,
+                max_output_tokens=64
+            )
+            refined_response = self.safe_generate_content(
+                refine_content, 
+                retries=5, 
+                backoff_factor=2, 
+                max_wait=60
+            ).strip()
+
+            if not refined_response:
+                logging.warning("[Eval] Final extraction step gave empty response; returning the bullet summary instead.")
+                return bullet_summary
+
+            logging.info(f"[Eval] Final Answer Extracted: {refined_response}")
+            return refined_response
+
         except Exception as e:
             logging.error(f"Error in RAT evaluation for question '{question}': {e}", exc_info=True)
             return "Error"

@@ -71,69 +71,47 @@ class YangProcessor:
         """
         Calls LLM to parse user query into a minimal JSON:
         {
-            "action": string in ["list_inventory","explain","compare_file","compare_vendor","compare"],
+            "action": string in ["list_inventory","explain","compare_file","compare_vendor","compare","generate_csv"],
             "file": string or null,
             "vendors": array of strings
         }
         No other fields are allowed. 
         """
         prompt_text = f"""
-        You are a specialized parser. 
-        Output ONLY valid JSON with no extra text (no code fences, no commentary). 
-        The JSON MUST have exactly three fields: "action", "file", "vendors".
+            You are a specialized parser.
+            Output ONLY valid JSON with no extra text (no code fences, no commentary). 
+            The JSON MUST have exactly three fields: "action", "file", "vendors".
 
-        **Allowed Actions**:
-        - "list_inventory": listing YANG inventory for a vendor or ORAN version. 
-        - "explain": explain a single .yang file. 
-        - "compare_file": compare a specific .yang file between two vendors or ORAN versions. 
-        - "compare_vendor": compare two vendors (broadly, or check which files changed). 
-        - "compare": a generic compare action (e.g. "which files changed" might set this if ambiguous). 
+            Allowed Actions:
+            - "list_inventory": list YANG inventory for a vendor or ORAN version.
+            - "explain": explain a single .yang file.
+            - "compare_file": compare a specific .yang file between two vendors or ORAN versions.
+            - "compare_vendor": broadly compare two vendors.
+            - "compare": a generic compare action.
+            - "generate_csv": generate a comma separated values (CSV) representation of a .yang file.
+            - "generate_xml": generate an XML representation of a .yang file.
 
-        **Rules**:
-        1. `action` MUST be one of: ["list_inventory","explain","compare_file","compare_vendor","compare"]  
-        2. `file` is either a .yang filename (string) or null if none specified.  
-        3. `vendors` is an array of strings (e.g. ["24A","24B"] or ["v06.0","v08.0"]). Possibly empty if not relevant.
+            Rules:
+            1. `action` MUST be one of the allowed actions.
+            2. `file` is a .yang filename (string) or null.
+            3. `vendors` is an array of strings, possibly empty.
+            If the user query mentions "csv" or "comma separated values", set action to "generate_csv".
+            If the user mentions an ORAN version like v6.0, unify it to "v06.00".
+            If the user mentions vendor 24A or 24B, store them as is.
 
-        **IMPORTANT**: 
-        - Do NOT output code fences or markdown. 
-        - Do NOT add extra keys. 
-        - Do NOT wrap the JSON in code fences. 
-        - Output only one JSON object with no additional text.
-        - If the user mentions an ORAN version like v6.0, unify it to "v06.00".
-        - If the user mentions vendor 24A or 24B, store them as is.
+            Examples:
+            1) "provide a list of yang models in oran v6" ->
+            {{"action": "list_inventory", "file": null, "vendors": ["v06.00"]}}
+            2) "explain samsung-access-uducnf.yang" ->
+            {{"action": "explain", "file": "samsung-access-uducnf.yang", "vendors": []}}
+            3) "compare file tailf-rollback.yang between vendor 24A and 24B" ->
+            {{"action": "compare_file", "file": "tailf-rollback.yang", "vendors": ["24A", "24B"]}}
+            4) "generate a comma separated values file based on o-ran-dhcp.yang" ->
+            {{"action": "generate_csv", "file": "o-ran-dhcp.yang", "vendors": []}}
+            {{"action": "generate_xml", "file": "o-ran-dhcp.yang", "vendors": []}}
 
-        **Examples**:
-
-        1) If user says "provide a list of yang models in oran v6", then:
-        {{
-        "action": "list_inventory",
-        "file": null,
-        "vendors": ["v06.00"]
-        }}
-
-        2) If user says "explain samsung-access-uducnf.yang", then:
-        {{
-        "action": "explain",
-        "file": "samsung-access-uducnf.yang",
-        "vendors": []
-        }}
-
-        3) If user says "compare file tailf-rollback.yang between vendor 24A and 24B", then:
-        {{
-        "action": "compare_file",
-        "file": "tailf-rollback.yang",
-        "vendors": ["24A","24B"]
-        }}
-
-        4) If user says "which files changed from 24A to 24B", then:
-        {{
-        "action": "compare",
-        "file": null,
-        "vendors": ["24A","24B"]
-        }}
-
-        The user's query: {query}
-        """
+            User Query: {query}
+            """
 
         try:
             response = llm.generate_content(
@@ -655,7 +633,194 @@ class YangProcessor:
         except Exception as e:
             logging.error(f"Error comparing file '{file_name}' for {vendor1} vs {vendor2}: {e}", exc_info=True)
             return f"I'm sorry, an error occurred comparing '{file_name}' for {vendor1} vs {vendor2}."
+        
+    def generate_csv_from_file(self, file_name: str, yang_chunks: List[Dict]) -> str:
+        """
+        Generates CSV code snippet from the specified YANG file.
+
+        We capture lines (or text) that define the following YANG statements:
+        leaf, leaf-list, container, grouping, typedef, list, choice, case
+        ignoring any indentation.
+
+        For each matched element, we slice out the text until the next match (or EOF)
+        to find any 'description "<...>"' blocks. We store that as the element's Description.
+        Then we return the CSV wrapped in triple backticks as a code snippet.
+        """
+        import re
+        import io
+        import csv
+        
+        # 1) Filter chunks by file_name
+        filtered = [
+            chunk for chunk in yang_chunks
+            if file_name.lower() in chunk.get("metadata", {}).get("file_name", "").lower()
+        ]
+        if not filtered:
+            return f"No content found for file '{file_name}'."
+
+        # 2) Stitch them all together
+        assembled = self.stitch_chunks(filtered)
+        logging.info(f"YangProcessor.generate_csv_from_file: Stitched together {len(filtered)} chunks for file '{file_name}'.")
+
+        # 3) Regex to match YANG statements (leaf, leaf-list, container, grouping, typedef, list, choice, case).
+        #    This pattern ignores indentation, and it matches lines or text blocks like:
+        #      "   leaf vlan-id {" or "grouping vendor-infor {"
+        #    We also include an optional brace right after the name.
+        element_pattern = re.compile(
+            r'(leaf-list|leaf|container|grouping|typedef|list|choice|case)\s+([\w\-\d]+)\s*\{',
+            re.IGNORECASE | re.MULTILINE
+        )
+
+        # We find all definitions with finditer so we can slice out each block from the text
+        # until the start of the next definition or the end of the text.
+        matches = list(element_pattern.finditer(assembled))
+
+        # 4) Prepare an in-memory CSV, add a header row
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Element Type", "Element Name", "Description"])
+
+        if not matches:
+            # No matches found
+            snippet = """```csv
+    Element Type,Element Name,Description
+
+    ```"""
+            return snippet
+
+        # We'll define a helper to get the text from one match's end to the next match's start
+        def get_block_text(i):
+            start_idx = matches[i].end()
+            if i < len(matches) - 1:
+                end_idx = matches[i+1].start()
+            else:
+                end_idx = len(assembled)
+            return assembled[start_idx:end_idx]
+
+        for i, match in enumerate(matches):
+            element_type = match.group(1)
+            element_name = match.group(2)
+
+            # Extract the text chunk belonging to this element
+            block_text = get_block_text(i)
+
+            # find a possible description "..."
+            desc_pattern = re.compile(r'description\s+"([^"]*)"', re.DOTALL | re.IGNORECASE)
+            desc_match = desc_pattern.search(block_text)
+            if desc_match:
+                description = desc_match.group(1).replace("\n", " ").strip()
+            else:
+                description = ""
+
+            writer.writerow([element_type, element_name, description])
+
+        csv_content = output.getvalue().strip()
+        output.close()
+
+        snippet = f"```csv\n{csv_content}\n```"
+        return snippet
     
+    def generate_xml_from_file(self, file_name: str, yang_chunks: List[Dict]) -> str:
+        """
+        Generates an XML representation from the specified YANG file, returning it
+        as a code snippet in triple-backtick fences. For example:
+
+        ```xml
+        <yangElements>
+        <element type="leaf" name="vlan-id">
+            <description>The VLAN ID leaf...</description>
+        </element>
+        ...
+        </yangElements>
+        ```
+
+        We detect lines or text blocks for:
+        - leaf
+        - leaf-list
+        - container
+        - grouping
+        - typedef
+        - list
+        - choice
+        - case
+
+        For each matched definition, we also capture a 'description' block if present.
+        """
+        import re
+        import io
+        
+        # 1) Filter chunks by file_name
+        filtered = [chunk for chunk in yang_chunks
+                    if file_name.lower() in chunk.get("metadata", {}).get("file_name", "").lower()]
+        if not filtered:
+            return f"No content found for file '{file_name}'."
+
+        # 2) Stitch them all together
+        assembled = self.stitch_chunks(filtered)
+        logging.info(f"YangProcessor.generate_xml_from_file: Stitched together {len(filtered)} chunks for file '{file_name}'.")
+
+        # 3) Regex to detect YANG statements
+        element_pattern = re.compile(
+            r'(leaf-list|leaf|container|grouping|typedef|list|choice|case)\s+([\w\-\d]+)\s*\{',
+            re.IGNORECASE | re.MULTILINE
+        )
+
+        matches = list(element_pattern.finditer(assembled))
+
+        # 4) If no matches, return an empty XML snippet.
+        if not matches:
+            return """```xml
+    <yangElements>
+    <!-- No YANG statements found. -->
+    </yangElements>
+    ```"""
+
+        # 5) Helper to slice each element's text block so we can capture the 'description'
+        def get_block_text(i):
+            start_idx = matches[i].end()
+            if i < len(matches) - 1:
+                end_idx = matches[i+1].start()
+            else:
+                end_idx = len(assembled)
+            return assembled[start_idx:end_idx]
+
+        # 6) Build up an XML string in memory
+        xml_output = ['<yangElements>']
+
+        desc_pattern = re.compile(r'description\s+"([^"]*)"', re.DOTALL | re.IGNORECASE)
+
+        for i, match in enumerate(matches):
+            element_type = match.group(1).lower()  # e.g. "leaf", "container", etc.
+            element_name = match.group(2)
+
+            block_text = get_block_text(i)
+            desc_match = desc_pattern.search(block_text)
+            if desc_match:
+                description = desc_match.group(1).replace("\n", " ").strip()
+            else:
+                description = ""
+
+            # Escape any special XML characters in description if necessary
+            # For a quick approach, we might do:
+            description_xml = (
+                description
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+            )
+
+            xml_output.append(f'  <element type="{element_type}" name="{element_name}">')
+            if description_xml:
+                xml_output.append(f'    <description>{description_xml}</description>')
+            xml_output.append('  </element>')
+
+        xml_output.append('</yangElements>')
+
+        # 7) Wrap in ```xml code fences
+        snippet = "```xml\n" + "\n".join(xml_output) + "\n```"
+        return snippet
+
     # --------------------------------------------------------
     # Main Analysis Entry Point
     # --------------------------------------------------------
@@ -701,6 +866,10 @@ class YangProcessor:
             elif action == "compare" and len(vendors) >= 2:
                 # For generic compare (if no file is specified), you could list modified files.
                 return self.list_modified_yang_files(vendors[0], vendors[1])
+            elif action == "generate_csv" and file_name:
+                return self.generate_csv_from_file(file_name, yang_chunks)
+            elif action == "generate_xml" and file_name:
+                return self.generate_xml_from_file(file_name, yang_chunks)
             else:
                 return "I'm sorry, I can't handle that request with the given details."
         except Exception as e:
