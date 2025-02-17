@@ -66,8 +66,8 @@ class Evaluator:
         self.vector_searcher = vector_searcher  
         self.generative_model = GenerativeModel("gemini-1.5-flash-002")
         self.generation_config = GenerationConfig(
-            temperature=generation_config.get('temperature', 0.7),
-            top_p=generation_config.get('top_p', 0.9),
+            temperature=generation_config.get('temperature', 0),
+            top_p=generation_config.get('top_p', 1),
             max_output_tokens=generation_config.get('max_output_tokens', 1000),
         )
         self.storage_client = storage.Client(project=self.project_id, credentials=credentials)
@@ -360,7 +360,7 @@ class Evaluator:
                 generation_config=self.generation_config,
                 index_endpoint_display_name=self.index_endpoint_display_name,
                 deployed_index_id=self.deployed_index_id,
-                num_iterations=2,
+                num_iterations=3,
             )
             conversation_history = []  # For evaluation, we assume an empty history.
             final_cot = rat.process_query(question, conversation_history, choices=choices)
@@ -373,41 +373,33 @@ class Evaluator:
             # Instruct the model to produce detailed reasoning and then output a final line that reads exactly:
             # "Final Answer: X" where X is one of the allowed numbers.
             refine_prompt = f"""
-            You are an expert in O-RAN systems. Based on the chain-of-thought below—which includes your detailed reasoning that has considered the multiple-choice options—produce a final answer that includes your complete step-by-step reasoning. 
-            At the very end of your output, include a separate line exactly in the following format:
-                
-                Final Answer: X
+            You are an expert in O-RAN systems. Below is the original question, the answer choices, and your final chain-of-thought reasoning.
+            Based on all this context, output ONLY a single line that reads exactly:
 
-            where X is the correct option number (choose one of 1, 2, 3, or 4). Do not output any extra commentary after that final line.
+            Final Answer: X
 
-            Question:
+            where X is one of 1, 2, 3, or 4 corresponding to the correct answer choice.
+            Do not include any additional commentary or text.
+
+            Original Question:
             {question}
 
-            Multiple Choice Options:
+            Answer Choices:
             {choices_text}
 
             Final Chain-of-Thought:
             {final_cot}
 
-            Please provide your final answer along with your detailed reasoning:
-            """
-            from vertexai.generative_models import Content, GenerationConfig, Part
+            Final Answer:"""
             prompt_content = Content(role="user", parts=[Part.from_text(refine_prompt)])
-
-            # Use a final generation configuration that allows more tokens (e.g., 128 tokens) for detailed reasoning.
-            final_gen_config = GenerationConfig(
-                temperature=0.0,
-                top_p=1.0,
-                max_output_tokens=128
-            )
-            refined_response = self.safe_generate_content(prompt_content, retries=15, backoff_factor=2, max_wait=40)
-            final_answer = refined_response.strip() if refined_response.strip() else final_cot
+            
+            refined_response = self.safe_generate_content(prompt_content, retries=10, backoff_factor=2, max_wait=300)
+            final_answer = refined_response.strip()
+            logging.info(f"[Eval] Final Answer Extracted: {final_answer}")
             return final_answer
-
         except Exception as e:
             logging.error(f"Error in RAT evaluation for question '{question}': {e}", exc_info=True)
             return "Error"
-
 
     # ------------------------------------------------------------------
     # (5) Evaluate a single Q&A entry

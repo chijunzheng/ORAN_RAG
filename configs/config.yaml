@@ -55,7 +55,7 @@ logging:
   log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/log/oran_rag.log"  # User-defined path for log files
 
 evaluation:
-  num_questions: 3243
+  num_questions: 50
   excel_file_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Evaluation/evaluation_results.xlsx"
   max_workers: 1
   plot_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Evaluation/accuracy_plots.png"
