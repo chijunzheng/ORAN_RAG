@@ -359,12 +359,41 @@
         </div>
         <form id="input-form">
             <input type="text" id="message" name="message" placeholder="Message ORAN Chatbot" required>
+            <!-- Hidden input to store CoT toggle state -->
+            <input type="hidden" id="useCotField" name="use_cot" value="off">
+            <!-- Toggle button for CoT -->
+            <button type="button" id="cotToggleButton" onclick="toggleCot()">Think</button>
             <button type="submit" aria-label="Send Message">Send</button>
         </form>
         <div id="loading">Chatbot is typing...</div>
     </div>
     
     <script>
+        // Check if the CoT toggle button is present
+        document.addEventListener("DOMContentLoaded", function() {
+            const toggleButton = document.getElementById("cotToggleButton");
+            if (toggleButton) {
+                console.log("CoT Toggle button found:", toggleButton);
+            } else {
+                console.error("CoT Toggle button NOT found! Check your HTML template.");
+            }
+        });
+
+        let cotOn = false;
+        function toggleCot() {
+            cotOn = !cotOn;
+            document.getElementById('useCotField').value = cotOn ? 'on' : 'off';
+            const toggleButton = document.getElementById("cotToggleButton");
+            if (cotOn) {
+                toggleButton.style.backgroundColor = "#f4d03f"; // highlighted state
+                toggleButton.textContent = "CoT: ON";
+            } else {
+                toggleButton.style.backgroundColor = "#d0d3d4"; // default state
+                toggleButton.textContent = "Think";
+            }
+            console.log("CoT Toggle clicked. New state:", cotOn ? "ON" : "OFF");
+        }
+        
         const form = document.getElementById('input-form');
         const chatBox = document.getElementById('chat-box');
         const messageInput = document.getElementById('message');
@@ -394,7 +423,9 @@
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: new URLSearchParams({
-                    'message': userMessage
+                    'message': userMessage,
+                    'use_cot': document.getElementById('useCotField').value
+
                 })
             })
             .then(response => response.json())
@@ -469,5 +500,7 @@
             chatBox.appendChild(messageContainer);
         }
     </script>
+
+
 </body>
 </html>

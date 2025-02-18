@@ -44,19 +44,6 @@ except Exception as e:
     logger.error(f"Authentication failed: {e}")
     raise
 
-# (Optional) If you want to reprocess YANG files at startup, call process_yang_dir
-# (Typically this step is run in a separate pipeline; here we add an endpoint to trigger it.)
-# For example:
-# yang_chunks = process_yang_dir(config['paths']['yang_dir'])
-# Optionally, run your embedder to rebuild embeddings for YANG files if needed.
-# embedder = Embedder(
-#     project_id=config['gcp']['project_id'],
-#     location=config['gcp']['location'],
-#     bucket_name=config['gcp']['bucket_name'],
-#     embeddings_path=config['gcp']['embeddings_path'],
-#     credentials=auth_manager.get_credentials()
-# )
-# embedder.generate_and_store_embeddings(yang_chunks)
 
 # Initialize VectorSearcher
 try:
@@ -114,38 +101,30 @@ except Exception as e:
 
 @app.route('/')
 def home():
-<<<<<<< HEAD
     # Clear conversation history when the home page is accessed
-=======
-    # Clear conversation history when the home page is accessed.
->>>>>>> gpl_generation
     session.pop('conversation_history', None)
     return render_template('index.html')
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    user_input = request.form.get('message')
-    if not user_input:
-        logger.warning("No message provided by the user.")
-        return jsonify({'error': 'No message provided.'}), 400
-
-    try:
-        # Retrieve or initialize conversation history.
-        conversation_history = session.get('conversation_history', [])
-
-        # Get response from chatbot.
-        response = chatbot.get_response(user_input, conversation_history)
-
-        # Update conversation history.
-        conversation_history.append({'user': user_input, 'assistant': response})
-        session['conversation_history'] = conversation_history
-
-        logger.info(f"User: {user_input}")
-        logger.info(f"Chatbot: {response}")
-        return jsonify({'response': response})
-    except Exception as e:
-        logger.error(f"Error getting response from chatbot: {e}", exc_info=True)
-        return jsonify({'error': 'Error processing your request.'}), 500
+    user_input = request.form.get('message', '')
+    use_cot = request.form.get('use_cot', 'off')  # Expect "on" or "off"
+    logger.info(f"Received /ask request with use_cot: {use_cot}")
+    
+    conversation_history = session.get('conversation_history', [])
+    
+    response = chatbot.get_response(
+        user_query=user_input, 
+        conversation_history=conversation_history,
+        use_cot=(use_cot.lower() == 'on')
+    )
+    
+    conversation_history.append({'user': user_input, 'assistant': response})
+    session['conversation_history'] = conversation_history
+    
+    logger.info(f"User: {user_input}")
+    logger.info(f"Chatbot: {response}")
+    return jsonify({'response': response})
 
 # (Optional) Provide an endpoint to reprocess the YANG files and rebuild embeddings.
 @app.route('/reprocess_yang', methods=['POST'])
@@ -171,6 +150,7 @@ def reprocess_yang():
     except Exception as e:
         logger.error(f"Error reprocessing YANG files: {e}", exc_info=True)
         return jsonify({'error': 'Failed to reprocess YANG files.'}), 500
+
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5001, debug=True)
