@@ -107,8 +107,26 @@ class RATProcessor:
             index_endpoint_display_name=self.index_endpoint_display_name,
             deployed_index_id=self.deployed_index_id,
             )
-        # For each retrieved chunk, we take the "content"
-        context_text = "\n".join(chunk.get("content", "") for chunk in retrieved)
+        # Build a text block that contains each chunk’s metadata
+        context_text = ""
+        for i, chunk in enumerate(retrieved, start=1):
+            doc_meta = chunk.get("metadata", {})
+            doc_name = chunk.get("document_name", "N/A")
+            version = doc_meta.get("version","unknown")
+            workgroup = doc_meta.get("workgroup","unknown")
+            subcat = doc_meta.get("subcategory","unknown")
+            page = chunk.get("page_number","N/A")
+
+            # Add chunk ID for clarity
+            context_text += (
+                f"--- Retrieved Chunk #{i} ---\n"
+                f"Document Name: {doc_name}\n"
+                f"Version: {version}\n"
+                f"Workgroup: {workgroup}\n"
+                f"Subcategory: {subcat}\n"
+                f"Page: {page}\n\n"
+                f"{chunk.get('content','No content')}\n\n"
+            )
         logging.info(f"Retrieved context (first 1000 chars): {context_text[1000]}...")
         return context_text
 
@@ -152,79 +170,6 @@ class RATProcessor:
         logging.info(f"Revised CoT (first 1000 chars): {revised_cot[:1000]}...")
         return revised_cot
 
-    def generate_final_answer(self, final_cot: str, query: str, conversation_history: List[Dict]) -> str:
-        """
-        Uses the final revised chain-of-thought to produce a final answer.
-        """
-        # Build conversation history string from the last 5 turns.
-        history_text = ""
-        for turn in conversation_history[-5:]:
-            history_text += f"User: {turn.get('user')}\nAssistant: {turn.get('assistant')}\n"
-        history_text += f"User: {query}\n"
-
-        prompt = f"""
-        <purpose>
-            You are an expert in O-RAN systems. Always start by focusing on the refined chain-of-thought provided below to maintain context and alignment in your reasoning. Then use any relevant background knowledge along with the query to generate a precise and well-structured answer.
-        </purpose>
-
-        <refined chain-of-thought>
-        {final_cot}
-        </refined chain-of-thought>
-
-        <instructions>
-            <instruction>Use the refined chain-of-thought along with the original query and the recent conversation history to produce a concise and precise final answer.</instruction>
-            <instruction>Structure your answer with high-level headings (##) and subheadings (###). Use bullet points or numbered lists where appropriate.</instruction>
-            <instruction>Do NOT include reference citations immediately after individual bullet points or inline within paragraphs.</instruction>
-            <instruction>Instead, at the end of each section, compile all references in a consolidated block formatted in smaller font using HTML <small> tags. For example:
-                <small>
-                    &nbsp;&nbsp;*(Reference: [Document Name], page [Page Number(s)]; [Another Document], page [Page Number(s)])*
-                </small>
-            <instruction>Keep the tone professional and informative, suitable for engineers new to O-RAN systems.</instruction>
-        </instructions>
-
-        <sections>
-            <answer-format>
-                Structure your answer with high-level headings (##) and subheadings (###). Present your response using bullet points or numbered lists.
-                **Reference Rules**:
-                - Do NOT include any references immediately after bullet points or sentences.
-                - Instead, compile all relevant references into one consolidated block at the end of each section.
-                - Format the consolidated reference block using HTML <small> tags. 
-            </answer-format>
-            <markdown-guidelines>
-                <markdown-guideline>Use `##` for main sections and `###` for subheadings.</markdown-guideline>
-                <markdown-guideline>Use bullet points for lists and maintain consistent indentation.</markdown-guideline>
-            </markdown-guidelines>
-            <important-notes>
-                <important-note>Focus on delivering a complete answer that fully addresses the query.</important-note>
-                <important-note>Be logical and concise, while providing detailed information.</important-note>
-                <important-note>Ensure the explanation is presented step-by-step, covering all relevant stages.</important-note>
-            </important-notes>
-            <audience>
-                Engineers new to O-RAN.
-            </audience>
-            <tone>
-                Professional and informative.
-            </tone>
-        </sections>
-
-        <conversation-history>
-        {history_text}
-        </conversation-history>
-
-        <question>
-        {query}
-        </question>
-
-        <answer>
-
-        </answer>
-        """
-        content = Content(role="user", parts=[Part.from_text(prompt)])
-        response = self.llm.generate_content(content, generation_config=self.cot_generation_config)
-        final_answer = response.text.strip() if response and response.text.strip() else final_cot
-        logging.info(f"Final Answer: {final_answer[:1000]}...")
-        return final_answer
-
     def process_query(self, query: str, conversation_history: List[Dict]) -> str:
         """
         Performs the iterative retrieval augmented thought process:
@@ -238,5 +183,4 @@ class RATProcessor:
             retrieval_query = self.generate_retrieval_query(current_cot, query)
             retrieved_context = self.retrieve_context(retrieval_query)
             current_cot = self.revise_cot(current_cot, retrieved_context, query)
-        #final_answer = self.generate_final_answer(current_cot, query, conversation_history)
         return current_cot

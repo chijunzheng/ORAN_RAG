@@ -225,10 +225,14 @@ class Chatbot:
 
         # (3) Build the ORAN context from the ORAN document chunks.
         oran_context = "\n\n".join([
-            f"Chunk {i+1} (File: {chunk.get('document_name','N/A')}, Version: {chunk.get('metadata', {}).get('version','unknown')}, "
-            f"Workgroup: {chunk.get('metadata', {}).get('workgroup','unknown')}, Subcategory: {chunk.get('metadata', {}).get('subcategory','unknown')}, "
-            f"Page: {chunk.get('page_number','N/A')}):\n{chunk.get('content','No content')}"
-            for i, chunk in enumerate(oran_doc_chunks)
+            f"Chunk {i+1} => "
+            f"Document Name: {chunk.get('document_name','N/A')}\n"
+            f"Version: {chunk.get('metadata', {}).get('version','unknown')}\n"
+            f"Workgroup: {chunk.get('metadata', {}).get('workgroup','unknown')}\n"
+            f"Subcategory: {chunk.get('metadata', {}).get('subcategory','unknown')}\n"
+            f"Page: {chunk.get('page_number','N/A')}\n\n"
+            f"{chunk.get('content','No content')}"
+            for i, chunk in enumerate(chunks)
         ])
        
 
