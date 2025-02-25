@@ -51,7 +51,7 @@ class RATProcessorEval(RATProcessor):
                 error_text = str(e).lower()
                 # Detect quota or rate limit errors.
                 if any(keyword in error_text for keyword in ["429", "quota", "rate limit", "resourceexhausted"]):
-                    fixed_wait = 120 
+                    fixed_wait = 60
                     logging.warning(f"[RAT Eval] Quota or rate limit error detected: {e}. Waiting for {fixed_wait} seconds before retrying.")
                     time.sleep(fixed_wait)
                     # Reset attempt and wait_time after quota error.
@@ -69,47 +69,48 @@ class RATProcessorEval(RATProcessor):
                     time.sleep(sleep_time + jitter)
                     wait_time *= backoff_factor
 
-    def generate_initial_cot(self, query: str, choices: List[str] = None) -> str:
+    def generate_initial_cot(self, question: str, choices: List[str] = None) -> str:
         """
-        Generates an initial chain-of-thought (CoT) for the query.
-        When choices are provided (evaluation mode), they are injected into the prompt.
+        Uses the same default prompt structure from rat_processor.py,
+        but if 'choices' exist, inject them into the question.
         """
         if choices:
-            choices_str = "\n".join([f"{i+1}. {choice}" for i, choice in enumerate(choices)])
-            prompt = f"""
-You are an expert in complex problem solving for multiple-choice questions.
-Generate a detailed initial chain-of-thought that outlines your step-by-step reasoning.
-Make sure to explicitly consider the following answer options in your reasoning.
-Do not worry if some steps are uncertain; provide a clear draft of your thought process.
-
-Question: {query}
-
-Answer Options:
-{choices_str}
-
-Chain-of-Thought:"""
+            joined_choices = "\n".join(f"{i+1}. {opt}" for i, opt in enumerate(choices))
+            # Merge them into 'question'
+            combined_query = (
+                f"{question}\n\n"
+                "Multiple Choice Options:\n"
+                f"{joined_choices}\n\n"
+            )
         else:
-            prompt = f"""
-You are an expert in complex problem solving and iterative reasoning.
-For the following question, generate a detailed initial chain-of-thought that outlines your step-by-step reasoning.
-Do not worry if some steps are uncertain or incomplete; provide a clear draft of your thought process.
+            combined_query = question
 
-Question: {query}
+        prompt = f"""
+        You are an expert in complex problem solving and iterative reasoning. 
+        For the following question, generate a detailed initial chain-of-thought 
+        that outlines your step-by-step reasoning. 
+        Do not worry if some steps are uncertain or incomplete; 
+        provide a clear draft of your thought process.
 
-Chain-of-Thought:"""
+        Question: {question}
+
+        Chain-of-Thought:
+        """
         content = Content(role="user", parts=[Part.from_text(prompt)])
         initial_cot = self._safe_generate_content(content, config=self.cot_generation_config)
-        logging.info(f"[Eval] Initial CoT (first 1000 chars): {initial_cot[:1000]}...")
+        logging.info(f"Initial CoT (first 1000 chars): {initial_cot[:1000]}...")
         return initial_cot
 
     def generate_retrieval_query(self, current_cot: str, query: str) -> str:
         """
         Uses the current chain-of-thought and the original query to generate a concise retrieval query.
+        The retrieval query should focus on the uncertainties or key factual gaps in the current chain-of-thought,
+        so that external reliable information can help improve the answer.
         """
         prompt = f"""
-            You are an expert at crafting precise retrieval queries.
-            Based on the following chain-of-thought and the original question, generate a concise retrieval query
-            that targets any uncertainties or factual gaps in your reasoning.
+        You are an expert at crafting precise retrieval queries.
+        Based on the following chain-of-thought and the original question, generate a concise retrieval query
+        that targets any uncertainties or factual gaps in your reasoning.
 
             Current Chain-of-Thought:
             "{current_cot}"
@@ -120,8 +121,10 @@ Chain-of-Thought:"""
             Retrieval Query (output only plain text):"""
         content = Content(role="user", parts=[Part.from_text(prompt)])
         retrieval_query = self._safe_generate_content(content, config=self.cot_generation_config)
-        logging.info(f"[Eval] Retrieval Query: {retrieval_query}")
+
+        logging.info(f"Retrieval Query: {retrieval_query}")
         return retrieval_query
+
 
     def retrieve_context(self, retrieval_query: str) -> str:
         """
@@ -131,16 +134,36 @@ Chain-of-Thought:"""
         if not self.vector_searcher:
             logging.error("No vector_searcher available for retrieval.")
             return ""
+        # Here we assume vector_searcher.vector_search(query_text, num_neighbors) is available.
         retrieved = self.vector_searcher.vector_search(
-            query_text=retrieval_query,
+            query_text=retrieval_query, 
             num_neighbors=5,
             index_endpoint_display_name=self.index_endpoint_display_name,
-            deployed_index_id=self.deployed_index_id
-        )
-        context_text = "\n".join(chunk.get("content", "") for chunk in retrieved)
-        logging.info(f"[Eval] Retrieved context (first 1000 chars): {context_text[:1000]}...")
-        return context_text
+            deployed_index_id=self.deployed_index_id,
+            )
+        # Build a text block that contains each chunk’s metadata
+        context_text = ""
+        for i, chunk in enumerate(retrieved, start=1):
+            doc_meta = chunk.get("metadata", {})
+            doc_name = chunk.get("document_name", "N/A")
+            version = doc_meta.get("version","unknown")
+            workgroup = doc_meta.get("workgroup","unknown")
+            subcat = doc_meta.get("subcategory","unknown")
+            page = chunk.get("page_number","N/A")
 
+            # Add chunk ID for clarity
+            context_text += (
+                f"--- Retrieved Chunk #{i} ---\n"
+                f"Document Name: {doc_name}\n"
+                f"Version: {version}\n"
+                f"Workgroup: {workgroup}\n"
+                f"Subcategory: {subcat}\n"
+                f"Page: {page}\n\n"
+                f"{chunk.get('content','No content')}\n\n"
+            )
+        logging.info(f"Retrieved context (first 1000 chars): {context_text[1000]}...")
+        return context_text
+    
     def revise_cot(self, current_cot: str, retrieved_context: str, query: str) -> str:
         """
         Revises the current chain-of-thought by incorporating the retrieved context.

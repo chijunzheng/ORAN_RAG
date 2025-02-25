@@ -4,7 +4,7 @@ gcp:
   bucket_name: "oran-rag-bucket"
   embeddings_path: "embeddings/"
   bucket_uri: "gs://oran-rag-bucket/embeddings/"
-  qna_dataset_path: "dataset/Q&A_ds_H.json"
+  qna_dataset_path: "dataset/fin_H.json"
   credentials_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My\ Drive/1.Projects/ORAN_RAG/keys/oran-rag-01462ea53452.json"
 
 paths:

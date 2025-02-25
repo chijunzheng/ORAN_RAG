@@ -66,9 +66,9 @@ class Evaluator:
         self.vector_searcher = vector_searcher  
         self.generative_model = GenerativeModel("gemini-1.5-flash-002")
         self.generation_config = GenerationConfig(
-            temperature=generation_config.get('temperature', 0),
-            top_p=generation_config.get('top_p', 1),
-            max_output_tokens=generation_config.get('max_output_tokens', 1000),
+            temperature=generation_config.get('temperature', 0.3),
+            top_p=generation_config.get('top_p', 0.9),
+            max_output_tokens=generation_config.get('max_output_tokens', 8192),
         )
         self.storage_client = storage.Client(project=self.project_id, credentials=credentials)
         self.bucket = self.storage_client.bucket(self.bucket_name)
@@ -221,8 +221,8 @@ class Evaluator:
                 error_text = str(e).lower()
                 # Detect quota or rate limit errors.
                 if any(keyword in error_text for keyword in ["429", "quota", "rate limit", "resourceexhausted"]):
-                    logging.warning("Quota or rate limit error detected; forcing an extended wait of 120 seconds.")
-                    fixed_wait = 120  # Fixed wait time for quota errors.
+                    logging.warning("Quota or rate limit error detected; forcing an extended wait.")
+                    fixed_wait = 60  # Fixed wait time for quota errors.
                     if attempt == retries:
                         logging.error(f"Final attempt {attempt}: {e}. Returning error message.")
                         return "Error: LLM generation failed after multiple attempts due to quota issues."
@@ -353,7 +353,17 @@ class Evaluator:
             A string representing the final LLM output.
         """
         try:
-            # (A) Use RATProcessorEval to generate the chain-of-thought with choices.
+
+            # (A) Combine the question and choices into a single JSON-like array string
+            joined_choices = ', '.join(f"\"{i+1}. {c}\"" for i, c in enumerate(choices))
+            combined_query_str = (
+                "["
+                f"\"{question}\", "
+                "\"Pick from the following choices and only return the ID of the choice:\", "
+                f"[{joined_choices}]"
+                "]"
+            )
+            # (B) Use RATProcessorEval to generate the chain-of-thought with choices.
             rat = RATProcessorEval(
                 vector_searcher=self.vector_searcher,
                 llm=self.generative_model,
@@ -363,68 +373,26 @@ class Evaluator:
                 num_iterations=3,
             )
             conversation_history = []  # For evaluation, we typically have no history
-            final_cot = rat.process_query(question, conversation_history, choices=choices)
+            final_cot = rat.process_query(combined_query_str, conversation_history, choices=None)
 
-            # (B) Summarize final_cot to remove extraneous or contradictory details.
-            #     This keeps the final extraction step focused.
-            bullet_summary_prompt = f"""
-            You are an expert at concise summarization. Summarize the following chain-of-thought into
-            a concise bullet list (3-5 bullets) capturing the key reasoning steps or facts only. 
-            Exclude tangential details. Output only the bullet list, no extra commentary:
-
-            Chain-of-Thought:
-            \"\"\"{final_cot}\"\"\"
-
-            Bullet List:"""
-
-            from vertexai.generative_models import Content, Part, GenerationConfig
-            bullet_summary_content = Content(role="user", parts=[Part.from_text(bullet_summary_prompt)])
-            
-            # Use a slightly lower temperature for summarization
-            bullet_summary_gen_config = GenerationConfig(
-                temperature=0.2,
-                top_p=0.9,
-                max_output_tokens=512
-            )
-            bullet_summary = self.safe_generate_content(
-                bullet_summary_content, 
-                retries=5, 
-                backoff_factor=2, 
-                max_wait=60
-            ).strip()
-
-            # (C) Build a final refine prompt re-injecting the question, choices, and bullet summary.
-            #     Then instruct to produce "Final Answer: X" in a single line.
-            choices_text = "\n".join(choices)
+            # (C) Construct the final refine prompt
             refine_prompt = f"""
-            You are an expert in O-RAN systems. Here are the question, the multiple-choice options, and a concise bullet-list summary 
-            of your chain-of-thought reasoning steps. Identify the single correct choice (1, 2, 3, or 4) with no extra commentary.
+            You are an O-RAN expert. The user provided the question and choices in a single array, exactly like so:
+            {combined_query_str}
 
-            Original Question:
-            {question}
+            Below is your final chain-of-thought from iterative retrieval augmentation. 
+            Based on that chain-of-thought, refine it and use it as your reasoning first and then provide the final answer at the end:
 
-            Answer Choices:
-            {choices_text}
-
-            Bullet-List Summary of Reasoning:
-            {bullet_summary}
-
-            Please output EXACTLY one line:
+            Final Chain-of-Thought:
+            {final_cot}
 
             Final Answer: X
 
-            where X is the chosen number (1, 2, 3, or 4). 
-            No other text, disclaimers, or commentary.
+            where X is one of 1, 2, 3, or 4 (the correct choice).
             """
 
             refine_content = Content(role="user", parts=[Part.from_text(refine_prompt)])
             
-            # A more deterministic final extraction with minimal tokens to avoid drifting
-            final_answer_gen_config = GenerationConfig(
-                temperature=0.0,
-                top_p=1.0,
-                max_output_tokens=64
-            )
             refined_response = self.safe_generate_content(
                 refine_content, 
                 retries=5, 
@@ -433,8 +401,8 @@ class Evaluator:
             ).strip()
 
             if not refined_response:
-                logging.warning("[Eval] Final extraction step gave empty response; returning the bullet summary instead.")
-                return bullet_summary
+                logging.warning("[Eval] Final step empty; returning the chain-of-thought as fallback.")
+                return final_cot
 
             logging.info(f"[Eval] Final Answer Extracted: {refined_response}")
             return refined_response

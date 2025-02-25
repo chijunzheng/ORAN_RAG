@@ -240,8 +240,7 @@ class Chatbot:
         prompt_text = f"""
             <purpose>
                 You are an expert in O-RAN systems. Always start by focusing on the "core concept" below 
-                to keep the reasoning aligned. Then use conversation history and the context 
-                (plus pre-trained knowledge if necessary) to provide an accurate answer.
+                to keep the reasoning aligned. Then use conversation history and the context to provide an accurate answer.
             </purpose>
 
             <core-concept>
@@ -429,53 +428,53 @@ class Chatbot:
                 return final_answer
             
             # 1) YANG or vendor-specific or ORAN queries => YangProcessor
-            if "yang" in user_query.lower() or "24a" in user_query.lower() or "24b" in user_query.lower() and "oran" in user_query.lower():
-                # Use the same vector_searcher-based YangProcessor
-                all_yang_chunks = list(self.vector_searcher.chunks.values())
-                return self.yang_processor.get_analysis(
-                    query=user_query,
-                    yang_chunks=all_yang_chunks,
-                    llm=self.generative_model,
-                    generation_config=self.yang_generation_config
-                )
+            # if "yang" in user_query.lower() or "24a" in user_query.lower() or "24b" in user_query.lower() and "oran" in user_query.lower():
+            #     # Use the same vector_searcher-based YangProcessor
+            #     all_yang_chunks = list(self.vector_searcher.chunks.values())
+            #     return self.yang_processor.get_analysis(
+            #         query=user_query,
+            #         yang_chunks=all_yang_chunks,
+            #         llm=self.generative_model,
+            #         generation_config=self.yang_generation_config
+            #     )
             
-            else:
-                # Use the default step-back approach
-                logging.info("CoT toggle is OFF => using step-back approach (core concept + chunk retrieval).")
-                
-                # (1) Get core concept
-                concept = self.generate_core_concept(user_query, conversation_history)
-                logging.info(f"Step-Back concept extracted: {concept}")
+           # else:
+            # Use the default step-back approach
+            logging.info("CoT toggle is OFF => using step-back approach (core concept + chunk retrieval).")
+            
+            # (1) Get core concept
+            concept = self.generate_core_concept(user_query, conversation_history)
+            logging.info(f"Step-Back concept extracted: {concept}")
 
-                # (2) Vector search
-                search_query = f"User query: {user_query}\nCore concept: {concept}"
-                retrieved_chunks = self.vector_searcher.vector_search(
-                    index_endpoint_display_name=self.index_endpoint_display_name,
-                    deployed_index_id=self.deployed_index_id,
-                    query_text=search_query,
-                    num_neighbors=self.num_neighbors
-                )
-                if not retrieved_chunks:
-                    logging.warning("No chunks retrieved for the query.")
-                    return "I'm sorry, I couldn't find relevant information."
+            # (2) Vector search
+            search_query = f"User query: {user_query}\nCore concept: {concept}"
+            retrieved_chunks = self.vector_searcher.vector_search(
+                index_endpoint_display_name=self.index_endpoint_display_name,
+                deployed_index_id=self.deployed_index_id,
+                query_text=search_query,
+                num_neighbors=self.num_neighbors
+            )
+            if not retrieved_chunks:
+                logging.warning("No chunks retrieved for the query.")
+                return "I'm sorry, I couldn't find relevant information."
 
-                # (3) Rerank
-                reranked_chunks = self.reranker.rerank(query=search_query, records=retrieved_chunks)
-                if not reranked_chunks:
-                    logging.warning("Reranking returned no results.")
-                    return "I'm sorry, I couldn't find relevant info after reranking."
+            # (3) Rerank
+            reranked_chunks = self.reranker.rerank(query=search_query, records=retrieved_chunks)
+            if not reranked_chunks:
+                logging.warning("Reranking returned no results.")
+                return "I'm sorry, I couldn't find relevant info after reranking."
 
-                # (4) Build final prompt
-                prompt_content = self.generate_prompt_content(
-                    query=user_query,
-                    concept=concept,
-                    chunks=reranked_chunks,
-                    conversation_history=conversation_history
-                )
+            # (4) Build final prompt
+            prompt_content = self.generate_prompt_content(
+                query=user_query,
+                concept=concept,
+                chunks=reranked_chunks,
+                conversation_history=conversation_history
+            )
 
-                # (5) Generate final response
-                answer = self.generate_response(prompt_content)
-                return answer.strip() if answer else "I'm sorry, I couldn't generate a response."
+            # (5) Generate final response
+            answer = self.generate_response(prompt_content)
+            return answer.strip() if answer else "I'm sorry, I couldn't generate a response."
 
         except Exception as e:
             logging.error(f"Error in get_response: {e}", exc_info=True)
