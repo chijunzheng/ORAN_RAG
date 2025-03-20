@@ -137,7 +137,7 @@ evaluation:
 **Customization:**
 - **Service Account Credentials:** Ensure that the credentials_path points to the downloaded IAM service account key JSON file.
 - **File Paths:** Update the paths under paths, logging, and evaluation sections to match your local or cloud storage directories.
-- **Vector Search Parameters:** Adjust parameters like dimensions, num_neighbors, and deployment settings based on your project’s requirements and the scale of your data.
+- **Vector Search Parameters:** Adjust parameters like dimensions, num_neighbors, and deployment settings based on your project's requirements and the scale of your data.
 - **Reranking Parameters:** Modify rerank_top_n under the ranking section to control the number of top reranked chunks passed to the LLM.
 - **Chunking and Generation:** Modify chunk_size, chunk_overlap, and generation parameters to optimize for performance and accuracy.
 
@@ -265,4 +265,57 @@ The dataset is from an open sourced O-RAN benchmark. Only the hard Q&A dataset w
    - **Accuracy Plots:**
      - A bar chart comparing the accuracies of the RAG pipeline and Gemini LLM is saved as accuracy_plots.png.
 
+## New Feature: Contextual Chunking
+
+The system now supports contextual chunking, which improves retrieval accuracy by adding document-level context to each chunk before embedding it. This technique helps situate each chunk within the larger document, making retrieval more accurate.
+
+### Running the Contextual Chunker
+
+You can run the contextual chunker in two ways:
+
+1. As part of the full pipeline:
+```bash
+python src/main.py --config configs/config.yaml
+```
+
+2. Using the standalone script (helpful if you encounter network issues with the full pipeline):
+```bash
+python run_chunker.py --config configs/config.yaml
+```
+
+The standalone script has additional options:
+```bash
+python run_chunker.py --help
+```
+
+### Implementation Details
+
+The contextual chunker extends the existing `DocumentChunker` class and adds context generation for each chunk. It works by:
+
+1. Identifying the position of each chunk within the document (beginning, middle, end sections)
+2. Extracting section headings that appear before the chunk 
+3. Including document metadata in the chunk content
+4. Using the document start text to provide additional context
+
+This implementation is lightweight and doesn't require external API calls, making it reliable in environments with network constraints.
+
+## Running Tests
+
+A simple test script is available to verify the contextual chunker functionality:
+
+```bash
+python test_chunker.py
+```
+
+## Configuration
+
+The contextual chunking behavior can be configured in the `configs/config.yaml` file under the `chunking` section:
+
+```yaml
+chunking:
+  chunk_size: 1536  # Maximum number of characters per chunk
+  chunk_overlap: 256  # Number of overlapping characters between chunks
+  separators: [". ", "? ", "! ", "\n\n"]
+  min_char_count: 100
+```
   

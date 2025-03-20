@@ -1,0 +1,74 @@
+---
+description: A RAG system designed to ingest O-RAN Alliance specification documents and later on other technical documents for accurate and in depth answer
+globs: 
+alwaysApply: false
+---
+
+# Developer Context 
+
+## Overview
+The ORAN-RAG pipeline is a Retrieval-Augmented Generation (RAG) system designed to ingest O-RAN Alliance specification documents into a vector database, enabling users to query and obtain accurate answers to ORAN-specific questions.
+
+## Implementations
+### Preprocessing
+- PDF Parsing: Utilizes `fitz` (PyMuPDF) for extracting text from O-RAN specification documents.
+- Text Cleaning: Custom text processing pipeline to remove artifacts and ensure clean, structured data.
+
+### Chunking
+- Implements LangChain's **Recursive Character Text Splitter** for effective document chunking.
+
+### Embedding Model
+- Uses **Google's text-embedding-005** model to generate embeddings for vector search.
+
+### Vector Database
+- **Google's Vector Search & Matching Engine on Vertex AI** for efficient storage and retrieval of document embeddings.
+
+### Reranker Model
+- Implements **Google's semantic-reranker model** to improve chunk ranking before passing data to the LLM.
+
+### Language Model
+- Uses **Google's Gemini-1.5-flash-002** for final answer generation based on retrieved and reranked chunks.
+
+
+### RAG Architectures
+- For default RAG pipeline: Stepback prompting technique, where the user's query is first abstracted to a "core concept" and using it, along with the original query, to perform similarity search in the vector database, as well as the reranker model.
+- For the chain of thought mode: A technique called "Retrieval Augmented Thoughts" is used where the query is first translated into a chain of thought, then translating those chain of thoughts into individual queries to search to relevent grounded chunks. With those chunks, the initial CoT will be refined. Then the refined chunks will be used to perform another round of retrieval to further improve the CoT. This would go on for x number of iterations.
+
+### Evaluation methods
+- Used an open-sourced benchmark with 13k+ Q&A dataset to evaluate the performance of my ORAN domain specific chatbot.
+- The default ORAN RAG chatbot got a 85% accuracy compared to 65% of raw Gemini-1.5-flash-002 model.
+- The chain of thought mode only got a 77% accuracy compared to 65% of raw Gemini-1.5-flash-002 model.
+
+## Workflow
+1. **Raw Document Storage**: Documents are stored on **Google Drive**.
+2. **Preprocessing Pipeline**:
+   - Text extraction and cleaning.
+   - Chunking with LangChain’s Recursive Character Splitter.
+   - Embedding generation using Google's text-embedding-005.
+3. **Data Storage**:
+   - **Chunks.jsonl** and **embedding files** are saved in **Google Cloud Storage (GCS)**.
+4. **Vector Database Indexing**:
+   - Embeddings from GCS are used to create a **Vector DB index** and **endpoint** on **Vertex AI's Vector Search**.
+5. **Retrieval**:
+   - Relevant document chunks are retrieved based on **user queries**.
+6. **Reranking and Generation**:
+   - Retrieved chunks are **reranked** using Google's **semantic-reranker model**.
+   - Top-ranked chunks are **fed into Gemini-1.5-flash-002** for answer generation.
+
+## Features
+### 1. Standard ORAN Document RAG Q&A
+- Users can query the ORAN specification documents using natural language to retrieve relevant answers.
+
+### 2. Chain of Thought (CoT) Prompting - "RAT" (Retrieval-Augmented Thought)
+- Iteratively improves responses by incorporating **grounded context** from the vector database.
+- Allows users to toggle CoT prompting on/off using a **"Think" button** in the chatbot frontend.
+
+### 3. Yang Model RAG Pipeline
+- Specialized pipeline for **Yang Model-related queries**.
+- Instead of similarity-based search, **metadata filtering** is used to retrieve relevant chunks.
+- Retrieved chunks are **stitched together** to ensure **lossless retrieval** of Yang model files.
+
+### 4. Frontend Chatbot Interface
+- A **locally hosted chatbot** enables interactive querying.
+- Includes a **"Think" button** for toggling Chain of Thought (CoT) prompting.
+

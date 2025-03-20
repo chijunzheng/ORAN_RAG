@@ -13,9 +13,9 @@ paths:
   yang_dir: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Yang"
 
 vector_search:
-  index_display_name: "oran_rag_index_yang"  # Name for the index creation
-  endpoint_display_name: "oran_rag_index_yang_endpoint"  # Name for the index deployment
-  deployed_index_id: "oran_rag_index_yang_deployed" # Name for the deployed index
+  index_display_name: "oran_rag_contextual_index"  # Name for the index creation
+  endpoint_display_name: "oran_rag_contextual_endpoint"  # Name for the index deployment
+  deployed_index_id: "oran_rag_contextual_index_deployed" # Name for the deployed index
 
   # Parameters for index creation
   index_description: "Index for O-RAN document embeddings"
@@ -52,7 +52,7 @@ generation:
   max_output_tokens: 8192
 
 logging:
-  log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/log/oran_rag.log"  # User-defined path for log files
+  log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/logs"  # User-defined path for log files
 
 evaluation:
   num_questions: 3243

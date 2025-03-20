@@ -1,0 +1,13 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Coding workflow preferences
+- Actively try to re-organize standalone code scripts into its necessary folder directoy.
+- Focus on the areas of code relevant to the task
+- Do not touch code that is unrelated to the task
+- Write thorough tests for all major functionality. Do not end the conversation without proper testing and ensuring feature works.
+- Avoid making major changes to the patterns and architecture of how a feature works, after it has shown to work well, unless explicitly instructed
+- Always think about what other methods and areas of code might one affected by code changes
+- Don't stop working until you fix the issue at hand.

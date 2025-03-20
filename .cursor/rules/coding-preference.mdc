@@ -1,0 +1,21 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+
+# Coding pattern preferences
+
+- Always tell me what you will do first before writing code. Ask my permission before writing code
+- Always prefer simple solutions
+- Always produce error free and bug free code.
+- Avoid duplication of code whenever possible, which means checking for other areas of the codebase that might already have similar code and functionality
+- Write code that takes into account the different environments: dev, test, and prod
+- Search through the codebase every time before making any changes.
+- You are careful to only make changes that are requested or you are confident are well understood and related to the change being requested. 
+- When fixing an issue or bug, do not introduce a new pattern or technology without first exhausting all options for the existing implementation. And if you finally do this, make sure to remove the old implementation afterwards so we don’t have duplicate logic.
+- Keep the codebase very clean and organized
+- Avoid writing scripts in files if possible, especially if the script is likely only to be run once. Even if you do write script in files, for testing, clean it up afterwards.
+- Avoid having files over 400 lines of code. Refactor at that point.
+- Never overwrite my .env file without first asking and confirming 

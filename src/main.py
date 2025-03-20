@@ -19,7 +19,7 @@ from src.authentication.auth_manager import AuthManager
 from src.data_processing.converters import DocumentConverter
 from src.data_processing.loaders import PDFLoader
 from src.data_processing.text_formatter import TextFormatter
-from src.data_processing.document_chunker import DocumentChunker
+from src.data_processing.contextual_chunker import ContextualChunker
 from src.embeddings.embedder import Embedder
 from src.vector_search.indexer import VectorIndexer
 from src.vector_search.searcher import VectorSearcher
@@ -209,8 +209,8 @@ def main():
             logging.error(f"Text formatting failed: {e}")
             sys.exit(1)
 
-        # Chunk pdf docs
-        chunker = DocumentChunker(
+        # Replace DocumentChunker with ContextualChunker
+        chunker = ContextualChunker(
             chunk_size=chunking_config['chunk_size'],
             chunk_overlap=chunking_config['chunk_overlap'],
             separators=chunking_config['separators'],
@@ -221,7 +221,7 @@ def main():
         )
         try:
             oran_chunks = chunker.split_documents(all_cleaned_documents)
-            logging.info(f"Split documents into {len(oran_chunks)} chunks.")
+            logging.info(f"Split documents into {len(oran_chunks)} chunks with context.")
         except Exception as e:
             logging.error(f"Document chunking failed: {e}")
             sys.exit(1)
