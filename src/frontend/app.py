@@ -16,7 +16,6 @@ from src.config import load_config, validate_config
 from src.chatbot.chatbot import Chatbot
 from src.vector_search.searcher import VectorSearcher
 from src.vector_search.reranker import Reranker
-from src.yang_pipeline import process_yang_dir
 from src.embeddings.embedder import Embedder  # for triggering re-embedding (if needed)
 
 app = Flask(__name__)
@@ -126,30 +125,6 @@ def ask():
     logger.info(f"Chatbot: {response}")
     return jsonify({'response': response})
 
-# (Optional) Provide an endpoint to reprocess the YANG files and rebuild embeddings.
-@app.route('/reprocess_yang', methods=['POST'])
-def reprocess_yang():
-    try:
-        yang_dir = config['paths']['yang_dir']
-        logger.info(f"Reprocessing YANG files in directory: {yang_dir}")
-        # Process YANG files to produce new chunks (with the new metadata including chunk_index).
-        yang_chunks = process_yang_dir(yang_dir)
-        logger.info(f"Reprocessed {len(yang_chunks)} YANG chunks.")
-
-        # Optionally, trigger re-embedding.
-        embedder = Embedder(
-            project_id=config['gcp']['project_id'],
-            location=config['gcp']['location'],
-            bucket_name=config['gcp']['bucket_name'],
-            embeddings_path=config['gcp']['embeddings_path'],
-            credentials=auth_manager.get_credentials()
-        )
-        embedder.generate_and_store_embeddings(yang_chunks)
-        logger.info("Re-embedded YANG chunks successfully.")
-        return jsonify({'message': 'YANG files reprocessed and embeddings updated.'})
-    except Exception as e:
-        logger.error(f"Error reprocessing YANG files: {e}", exc_info=True)
-        return jsonify({'error': 'Failed to reprocess YANG files.'}), 500
 
 
 if __name__ == '__main__':

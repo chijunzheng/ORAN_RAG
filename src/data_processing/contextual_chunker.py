@@ -9,12 +9,46 @@ from google.cloud import storage
 from google.oauth2.credentials import Credentials
 from src.data_processing.document_chunker import DocumentChunker, extract_oran_metadata_from_filename
 
-# Try to load environment variables from .env file, but don't fail if python-dotenv is not installed
+# Try to load environment variables from .env file using absolute path
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    # Get the absolute path to the project root
+    project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+    dotenv_path = os.path.join(project_root, '.env')
+    
+    # Check if .env file exists
+    if os.path.exists(dotenv_path):
+        load_dotenv(dotenv_path)
+        logging.info(f"Loaded .env file from {dotenv_path}")
+    else:
+        logging.warning(f".env file not found at {dotenv_path}")
 except ImportError:
-    logging.warning("python-dotenv not installed. Will use environment variables directly.")
+    logging.warning("python-dotenv not installed. Reading .env file manually.")
+    try:
+        # Define possible locations for the .env file
+        project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+        possible_paths = [
+            '.env',  # Current directory
+            os.path.join(project_root, '.env'),  # Project root
+        ]
+        
+        # Try each path
+        for env_path in possible_paths:
+            if os.path.exists(env_path):
+                logging.info(f"Found .env file at {env_path}")
+                with open(env_path, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            key, value = line.split('=', 1)
+                            os.environ[key] = value
+                            logging.info(f"Manually set {key} from .env file")
+                break  # Exit loop if a file was found and processed
+        else:
+            logging.warning("No .env file found in expected locations")
+    except Exception as e:
+        logging.error(f"Error manually reading .env file: {e}")
+        logging.warning("Falling back to environment variables")
 
 class ContextualChunker(DocumentChunker):
     """
@@ -88,7 +122,7 @@ Here is the chunk we want to situate within the whole document
 <chunk>
 {chunk_text}
 </chunk>
-Please give a short succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else.
+Please give a detailed succinct context to situate this chunk within the overall document for the purposes of improving search retrieval of the chunk. Answer only with the succinct context and nothing else.
 """
             
             # Set up the request payload
@@ -106,7 +140,7 @@ Please give a short succinct context to situate this chunk within the overall do
                     "temperature": 0.1,
                     "topP": 0.95,
                     "topK": 40,
-                    "maxOutputTokens": 100
+                    "maxOutputTokens": 300
                 }
             }
             
@@ -124,10 +158,6 @@ Please give a short succinct context to situate this chunk within the overall do
                 return self._generate_simple_context(document_text, chunk_text)
                 
             context = response_json["candidates"][0]["content"]["parts"][0]["text"].strip()
-            
-            # Limit context length for efficiency
-            if len(context) > 200:
-                context = context[:197] + "..."
             
             logging.debug(f"Generated context: {context}")
             return context
@@ -298,4 +328,38 @@ Please give a short succinct context to situate this chunk within the overall do
         
         chunks_with_ids = self.assign_ids(split_docs)
         logging.info(f"Total chunks after filtering and adding context: {len(chunks_with_ids)}")
-        return chunks_with_ids 
+        return chunks_with_ids
+    
+    def save_chunks_to_jsonl(self, chunks: List[Dict], file_path: str = "chunks.jsonl"):
+        """
+        Saves the chunks to a JSONL file format, which is compatible with the Embedder.
+        Each line is a valid JSON object with 'id' and 'content' fields.
+        
+        Args:
+            chunks (List[Dict]): List of chunk dictionaries.
+            file_path (str): Path to save the JSONL file.
+            
+        Raises:
+            Exception: If saving fails for any reason.
+        """
+        logging.info(f"Saving {len(chunks)} chunks to JSONL format at {file_path}")
+        try:
+            # Create directory if it doesn't exist
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            
+            # Write directly to the file
+            with open(file_path, 'w', encoding='utf-8') as f:
+                for chunk in chunks:
+                    # Extract only the fields needed for embedding
+                    line_dict = {
+                        'id': chunk.get('id'),
+                        'content': chunk.get('content', "")
+                    }
+                    json_record = json.dumps(line_dict, ensure_ascii=False)
+                    f.write(json_record + "\n")
+            logging.info(f"Chunk data saved in JSONL format to {file_path}")
+            return file_path
+        except Exception as e:
+            logging.error(f"Failed to save chunks to JSONL at {file_path}: {e}", exc_info=True)
+            raise
+    

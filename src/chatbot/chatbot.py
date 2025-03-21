@@ -3,7 +3,7 @@ import uuid
 import logging
 import tiktoken
 from typing import List, Dict
-from google.cloud import firestore, aiplatform
+from google.cloud import aiplatform
 from vertexai.generative_models import (
     GenerativeModel,
     GenerationConfig,
@@ -64,10 +64,6 @@ class Chatbot:
             )
             logging.info(f"Initialized Chatbot with project_id='{self.project_id}', location='{self.location}', bucket_uri='{self.bucket_uri}'")
 
-            # Initialize Firestore Client
-            self.db = firestore.Client(project=self.project_id, credentials=credentials)
-            logging.info("Initialized Firestore client.")
-
             # Initialize Generative Model
             self.generative_model = GenerativeModel("gemini-1.5-flash-002")
             logging.info("Initialized GenerativeModel 'gemini-1.5-flash-002'.")
@@ -85,8 +81,6 @@ class Chatbot:
                 max_output_tokens=generation_max_output_tokens,
             )
 
-            # Instantiate the YangProcessor
-            self.yang_processor = YangProcessor(vector_searcher=vector_searcher)
 
         except KeyError as ke:
             logging.error(f"Missing configuration key: {ke}", exc_info=True)

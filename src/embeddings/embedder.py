@@ -56,6 +56,31 @@ class Embedder:
         self.embedding_model = TextEmbeddingModel.from_pretrained("text-embedding-005")
         logging.info("Initialized TextEmbeddingModel from 'text-embedding-005'")
 
+    @staticmethod
+    def load_jsonl_file(file_path):
+        """
+        Load data from a JSONL file where each line is a valid JSON object.
+        
+        Args:
+            file_path (str): Path to the JSONL file
+            
+        Returns:
+            list: List of parsed JSON objects
+        """
+        logging.info(f"Loading data from JSONL file: {file_path}")
+        results = []
+        try:
+            with open(file_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line:  # Skip empty lines
+                        results.append(json.loads(line))
+            logging.info(f"Successfully loaded {len(results)} records from {file_path}")
+            return results
+        except Exception as e:
+            logging.error(f"Failed to load JSONL file {file_path}: {e}", exc_info=True)
+            raise
+
     def generate_and_store_embeddings(self, chunks: List[Dict], local_jsonl_path: str = "embeddings.jsonl", batch_size: int = 9):
         """
         Generates embeddings for text chunks in batches using dynamic batching.

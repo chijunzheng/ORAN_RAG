@@ -23,10 +23,10 @@ from src.data_processing.contextual_chunker import ContextualChunker
 from src.embeddings.embedder import Embedder
 from src.vector_search.indexer import VectorIndexer
 from src.vector_search.searcher import VectorSearcher
-from src.chatbot.chatbot import Chatbot
-from src.evaluation.evaluator import Evaluator
-from src.vector_search.reranker import Reranker
-from src.yang_pipeline import process_yang_dir
+# Only import these when needed
+# from src.chatbot.chatbot import Chatbot
+# from src.evaluation.evaluator import Evaluator
+# from src.vector_search.reranker import Reranker
 
 
 def parse_arguments():
@@ -45,7 +45,7 @@ def parse_arguments():
              python src/main.py --help
 
         Note:
-          - The --skip-preprocessing flag skips document conversion, loading PDFs, text formatting, chunking, and embedding.
+          - The --skip-preprocessing flag skips document conversion, loading PDFs, and text formatting.
         """
     )
 
@@ -75,7 +75,19 @@ def parse_arguments():
     pipeline_group.add_argument(
         '--skip-preprocessing',  
         action='store_true',
-        help='Skip all preprocessing stages: document conversion, loading PDFs, text formatting, chunking, and embedding.'
+        help='Skip initial preprocessing stages: document conversion, loading PDFs, and text formatting.'
+    )
+
+    pipeline_group.add_argument(
+        '--skip-chunking',
+        action='store_true',
+        help='Skip the document chunking stage.'
+    )
+
+    pipeline_group.add_argument(
+        '--skip-embedding',
+        action='store_true',
+        help='Skip the embedding generation stage.'
     )
 
     pipeline_group.add_argument(
@@ -88,6 +100,18 @@ def parse_arguments():
         '--skip-deploy-index',
         action='store_true',
         help='Skip the index deployment stage.'
+    )
+
+    pipeline_group.add_argument(
+        '--skip-chatbot',
+        action='store_true',
+        help='Skip chatbot initialization (use for preprocessing only).'
+    )
+
+    pipeline_group.add_argument(
+        '--chunks-only',
+        action='store_true',
+        help='Only perform document conversion, text formatting, and chunking operations (skip embedding, indexing, chatbot, and evaluation).'
     )
 
     return parser.parse_args()
@@ -139,10 +163,14 @@ def main():
 
     # Ensure necessary directories exist
     ensure_directory(config['paths']['embeddings_save_path'])
-    ensure_directory(os.path.dirname(config['logging']['log_file']) or 'log')  # Ensure log directory exists
-    ensure_directory(os.path.dirname(config['evaluation']['excel_file_path']) or 'Evaluation')
-    ensure_directory(os.path.dirname(config['evaluation']['plot_save_path']) or 'Evaluation')
-    
+    ensure_directory(config['paths']['documents'])
+    ensure_directory(os.path.dirname(config['logging']['log_file']))
+    ensure_directory(os.path.dirname(config['evaluation']['excel_file_path']))
+    ensure_directory(os.path.dirname(config['evaluation']['plot_save_path']))
+
+    # Print debug info about directories
+    logging.info(f"Embeddings will be saved to: {config['paths']['embeddings_save_path']}")
+    logging.info(f"Logs will be written to: {config['logging']['log_file']}")
 
     # Initialize Authentication with Service Account
     try:
@@ -155,8 +183,19 @@ def main():
 
     # Assign flags to variables for clarity
     skip_preprocessing = args.skip_preprocessing
+    skip_chunking = args.skip_chunking
+    skip_embedding = args.skip_embedding
     skip_create_index = args.skip_create_index
     skip_deploy_index = args.skip_deploy_index
+    skip_chatbot = args.skip_chatbot
+    chunks_only = args.chunks_only
+    
+    # If chunks_only flag is set, use it to override other flags
+    if chunks_only:
+        skip_create_index = True
+        skip_deploy_index = True
+        skip_chatbot = True
+        # No need to override evaluation as it's controlled by the evaluation flag
 
     # Initialize VectorIndexer regardless of flags (required for indexing operations)
     try:
@@ -165,23 +204,31 @@ def main():
         logging.error(f"Failed to initialize VectorIndexer: {e}")
         sys.exit(1)
 
-    # Initialize Reranker
-    try:
-        reranker = Reranker(
-            project_id=gcp_config['project_id'],
-            location=gcp_config['location'],
-            ranking_config=ranking_config['ranking_config'],
-            credentials=auth_manager.credentials,
-            model=ranking_config['model'],
-            rerank_top_n=ranking_config['rerank_top_n']
-        )
-    except Exception as e:
-        logging.error(f"Failed to initialize Reranker: {e}")
-        sys.exit(1)
+    # Initialize Reranker only if not in chunks-only mode or skip-chatbot mode
+    if not chunks_only and not skip_chatbot:
+        try:
+            # Import Reranker only when needed
+            from src.vector_search.reranker import Reranker
+            
+            reranker = Reranker(
+                project_id=gcp_config['project_id'],
+                location=gcp_config['location'],
+                ranking_config=ranking_config['ranking_config'],
+                credentials=auth_manager.credentials,
+                model=ranking_config['model'],
+                rerank_top_n=ranking_config['rerank_top_n']
+            )
+        except Exception as e:
+            logging.error(f"Failed to initialize Reranker: {e}")
+            sys.exit(1)
+    else:
+        logging.info("Skipping Reranker initialization as requested.")
+        # Create a dummy reranker for later use
+        reranker = None
 
     # 1. Preprocessing Stage (ORAN + YANG)
     if not skip_preprocessing:
-        logging.info("Starting preprocessing stages.")
+        logging.info("Starting document preprocessing stages.")
         # Perform ORAN PDF-based Preprocessing
         converter = DocumentConverter(directory_path=config['paths']['documents'])
         try:
@@ -208,7 +255,13 @@ def main():
         except Exception as e:
             logging.error(f"Text formatting failed: {e}")
             sys.exit(1)
-
+    else:
+        logging.info("Skipping document preprocessing stages.")
+        all_cleaned_documents = []  # Initialize as empty if preprocessing is skipped
+    
+    # 2. Document Chunking Stage
+    if not skip_chunking and not chunks_only:
+        logging.info("Starting document chunking stage.")
         # Replace DocumentChunker with ContextualChunker
         chunker = ContextualChunker(
             chunk_size=chunking_config['chunk_size'],
@@ -219,42 +272,105 @@ def main():
             credentials=auth_manager.credentials,
             min_char_count=chunking_config['min_char_count']
         )
+        
+        # Only try to split documents if we have documents from the preprocessing step
+        if skip_preprocessing:
+            logging.info("Loading existing documents for chunking...")
+            # TODO: If needed, add logic to load existing documents here
+            # For now, assume we don't have documents if preprocessing was skipped
+            # and chunking needs to be done using existing data
+            
         try:
-            oran_chunks = chunker.split_documents(all_cleaned_documents)
-            logging.info(f"Split documents into {len(oran_chunks)} chunks with context.")
+            if not all_cleaned_documents and skip_preprocessing:
+                logging.warning("No documents available for chunking. If preprocessing was skipped, ensure documents are loaded from another source.")
+                # Load existing chunks if available
+                chunks_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.jsonl')
+                if os.path.exists(chunks_file):
+                    logging.info(f"Loading existing chunks from {chunks_file}")
+                    with open(chunks_file, 'r') as f:
+                        oran_chunks = json.load(f)
+                    logging.info(f"Loaded {len(oran_chunks)} existing chunks.")
+                else:
+                    logging.error("No documents to chunk and no existing chunks found.")
+                    sys.exit(1)
+            else:
+                oran_chunks = chunker.split_documents(all_cleaned_documents)
+                logging.info(f"Split documents into {len(oran_chunks)} chunks with context.")
+                
+                # Save combined chunks to JSON file
+                chunks_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.jsonl')
+                try:
+                    chunker.save_chunks_to_json(oran_chunks, file_path=chunks_file)
+                    logging.info(f"Saved chunks to {chunks_file}")
+                except Exception as e:
+                    logging.error(f"Failed to save chunks: {e}")
+                    sys.exit(1)
+                
+                # Upload chunks file to GCS
+                try:
+                    chunker.upload_to_gcs(file_path=chunks_file, overwrite=True)
+                    logging.info("Uploaded chunks to GCS.")
+                except Exception as e:
+                    logging.error(f"Failed to upload chunks to GCS: {e}")
+                    sys.exit(1)
+                
+                # Also save chunks in JSONL format for embedding
+                chunks_jsonl_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.jsonl')
+                try:
+                    chunker.save_chunks_to_jsonl(oran_chunks, file_path=chunks_jsonl_file)
+                    logging.info(f"Saved chunks in JSONL format to {chunks_jsonl_file}")
+                    
+                    # Upload JSONL file to GCS as well
+                    chunker.upload_to_gcs(file_path=chunks_jsonl_file, overwrite=True)
+                    logging.info("Uploaded JSONL chunks to GCS.")
+                except Exception as e:
+                    logging.error(f"Failed to save or upload JSONL chunks: {e}")
+                    sys.exit(1)
         except Exception as e:
             logging.error(f"Document chunking failed: {e}")
             sys.exit(1)
-
-        # Process YANG files
-        try:
-            yang_chunks = process_yang_dir(paths_config['yang_dir'])
-            logging.info(f"Processed YANG files into {len(yang_chunks)} chunks.")
-        except Exception as e:
-            logging.error(f"YANG processing failed: {e}")
-            sys.exit(1)
-
-        # Combine ORAN and YANG chunks (if desired)
-        combined_chunks = oran_chunks + yang_chunks
-
-        # Save combined chunks to JSON Lines file
-        chunks_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.json')
-        try:
-            chunker.save_chunks_to_json(combined_chunks, file_path=chunks_file)
-            logging.info(f"Saved chunks to {chunks_file}")
-        except Exception as e:
-            logging.error(f"Failed to save chunks: {e}")
-            sys.exit(1)
-        
-        # Upload chunks file to GCS
-        try:
-            chunker.upload_to_gcs(file_path=chunks_file, overwrite=True)
-            logging.info("Uploaded chunks to GCS.")
-        except Exception as e:
-            logging.error(f"Failed to upload chunks to GCS: {e}")
-            sys.exit(1)
-        
-        # --- Embedding Generation Stage ---
+    else:
+        logging.info("Skipping document chunking stage.")
+        # Load existing chunks if available and if needed for embedding
+        if not skip_embedding:
+            # First try to load chunks.json
+            chunks_json_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.json')
+            chunks_jsonl_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.jsonl')
+            
+            if os.path.exists(chunks_json_file):
+                logging.info(f"Loading existing chunks from {chunks_json_file} for embedding")
+                try:
+                    with open(chunks_json_file, 'r') as f:
+                        oran_chunks = json.load(f)
+                    logging.info(f"Loaded {len(oran_chunks)} existing chunks.")
+                except Exception as e:
+                    logging.error(f"Failed to load JSON chunks file: {e}")
+                    logging.info("Trying JSONL format instead...")
+                    if os.path.exists(chunks_jsonl_file):
+                        try:
+                            oran_chunks = Embedder.load_jsonl_file(chunks_jsonl_file)
+                        except Exception as e2:
+                            logging.error(f"Failed to load JSONL chunks file: {e2}")
+                            sys.exit(1)
+                    else:
+                        logging.error("No valid chunks file found.")
+                        sys.exit(1)
+            elif os.path.exists(chunks_jsonl_file):
+                logging.info(f"Loading existing chunks from {chunks_jsonl_file} for embedding")
+                try:
+                    oran_chunks = Embedder.load_jsonl_file(chunks_jsonl_file)
+                except Exception as e:
+                    logging.error(f"Failed to load JSONL chunks file: {e}")
+                    sys.exit(1)
+            else:
+                logging.error("Cannot proceed with embedding: No chunks file found.")
+                sys.exit(1)
+        else:
+            oran_chunks = []  # Initialize as empty if both chunking and embedding are skipped
+    
+    # 3. Embedding Generation Stage
+    if not skip_embedding and not chunks_only:
+        logging.info("Starting embedding generation stage.")
         try:
             embedder = Embedder(
                 project_id=gcp_config['project_id'],
@@ -264,16 +380,20 @@ def main():
                 credentials=auth_manager.get_credentials()
             )
             embeddings_file = os.path.join(paths_config['embeddings_save_path'], 'embeddings.jsonl')
-            embedder.generate_and_store_embeddings(combined_chunks, local_jsonl_path=embeddings_file)
+            embedder.generate_and_store_embeddings(oran_chunks, local_jsonl_path=embeddings_file)
             logging.info(f"Embeddings generated and saved to {embeddings_file}")
         except Exception as e:
             logging.error(f"Embeddings generation failed: {e}")
             sys.exit(1)
     else:
-        logging.info("Skipping preprocessing stages.")
+        logging.info("Skipping embedding generation stage.")
+        
+    # If chunks-only flag is set, exit after processing chunks
+    if chunks_only:
+        logging.info("Operating in chunks-only mode. Exiting after chunk processing.")
+        sys.exit(0)
 
-
-    # 2. Index Creation Stage
+    # 4. Index Creation Stage
     index = None
     if not skip_create_index:
         logging.info("Starting index creation stage.")
@@ -286,7 +406,7 @@ def main():
     else:
         logging.info("Skipping index creation stage.")
 
-    # 3. Index Deployment Stage
+    # 5. Index Deployment Stage
     if not skip_deploy_index:
         logging.info("Starting index deployment stage.")
         try:
@@ -301,7 +421,7 @@ def main():
     else:
         logging.info("Skipping index deployment stage.")
 
-    # 4. Initialize VectorSearcher (needed for both Chatbot and Evaluator)
+    # 6. Initialize VectorSearcher (needed for both Chatbot and Evaluator)
     try:
         vector_searcher = VectorSearcher(
             project_id=gcp_config['project_id'],
@@ -315,39 +435,55 @@ def main():
         logging.error(f"Failed to initialize VectorSearcher: {e}")
         sys.exit(1)
 
-    # 5. Chatbot or Evaluation
+    # 7. Chatbot or Evaluation
     if args.evaluation == 'on':
         logging.info("Evaluation mode is ON. Skipping chatbot interaction.")
     else:
-        logging.info("Starting chatbot interaction stage.")
-        try:
-            chatbot = Chatbot(
-                project_id=gcp_config['project_id'],
-                location=gcp_config['location'],
-                bucket_name=gcp_config['bucket_name'],
-                embeddings_path=gcp_config['embeddings_path'],
-                bucket_uri=gcp_config['bucket_uri'],
-                index_endpoint_display_name=vector_search_config['endpoint_display_name'],
-                deployed_index_id=vector_search_config['deployed_index_id'],
-                generation_temperature=generation_config['temperature'],
-                generation_top_p=generation_config['top_p'],
-                generation_max_output_tokens=generation_config['max_output_tokens'],
-                vector_searcher=vector_searcher,
-                reranker=reranker,
-                credentials=auth_manager.credentials,
-                num_neighbors=vector_search_config['num_neighbors']
-            )
-            logging.info("Chatbot initialized successfully")
-            
-        except Exception as e:
-            logging.error(f"Chatbot encountered an error: {e}")
-            sys.exit(1)
+        if skip_chatbot:
+            logging.info("Skipping chatbot initialization as requested.")
+        else:
+            logging.info("Starting chatbot interaction stage.")
+            try:
+                # Import Chatbot only when needed
+                from src.chatbot.chatbot import Chatbot
+                
+                # Check if reranker is available
+                if reranker is None:
+                    logging.warning("Reranker is not available. Initializing Chatbot without reranking capability.")
+                    
+                chatbot = Chatbot(
+                    project_id=gcp_config['project_id'],
+                    location=gcp_config['location'],
+                    bucket_name=gcp_config['bucket_name'],
+                    embeddings_path=gcp_config['embeddings_path'],
+                    bucket_uri=gcp_config['bucket_uri'],
+                    index_endpoint_display_name=vector_search_config['endpoint_display_name'],
+                    deployed_index_id=vector_search_config['deployed_index_id'],
+                    generation_temperature=generation_config['temperature'],
+                    generation_top_p=generation_config['top_p'],
+                    generation_max_output_tokens=generation_config['max_output_tokens'],
+                    vector_searcher=vector_searcher,
+                    reranker=reranker,
+                    credentials=auth_manager.credentials,
+                    num_neighbors=vector_search_config['num_neighbors']
+                )
+                logging.info("Chatbot initialized successfully")
+                
+            except Exception as e:
+                logging.error(f"Chatbot encountered an error: {e}")
+                sys.exit(1)
 
-    # 6. Conditional Evaluation
+    # 8. Conditional Evaluation
     if args.evaluation == 'on':
         logging.info("Starting evaluation stage.")
         try:
             # Initialize Evaluator
+            from src.evaluation.evaluator import Evaluator
+            
+            # Check if reranker is available
+            if reranker is None:
+                logging.warning("Reranker is not available. Initializing Evaluator without reranking capability.")
+            
             evaluator = Evaluator(
                 project_id=gcp_config['project_id'],
                 location=gcp_config['location'],

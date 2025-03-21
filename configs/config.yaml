@@ -9,7 +9,7 @@ gcp:
 
 paths:
   documents: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Documents"
-  embeddings_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Embeddings"
+  embeddings_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/chunks_output"
   yang_dir: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Yang"
 
 vector_search:
@@ -52,10 +52,10 @@ generation:
   max_output_tokens: 8192
 
 logging:
-  log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/logs"  # User-defined path for log files
+  log_file: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/logs/contextual_chunking.log"  # User-defined path for log files
 
 evaluation:
   num_questions: 3243
-  excel_file_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Evaluation/evaluation_results.xlsx"
+  excel_file_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/evaluation_results/contextual_chunking/evaluation_results.xlsx"
   max_workers: 1
-  plot_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Evaluation/accuracy_plots.png"
+  plot_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/evaluation_results/contextual_chunking/accuracy_plots.png"
