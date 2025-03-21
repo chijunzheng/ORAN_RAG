@@ -16,3 +16,4 @@ log/
 *.jsonl
 chunks*.json
 flask_session/
+.env
