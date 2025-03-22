@@ -7,7 +7,7 @@ import argparse
 
 def load_chunks(file_path: str) -> pd.DataFrame:
     """
-    Loads chunks from a JSON Lines (.jsonl) file into a Pandas DataFrame.
+    Loads chunks from a JSON file into a Pandas DataFrame.
     
     Args:
         file_path (str): Path to the chunks.json file.

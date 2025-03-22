@@ -8,7 +8,7 @@ __pycache__/
 # Ignore CSV and JSON files (logs, temp data, etc.)
 *.csv
 *.json
-
+raw_docs/
 # Ignore log directory
 log/
 
@@ -17,3 +17,5 @@ log/
 chunks*.json
 flask_session/
 .env
+
+.cursor

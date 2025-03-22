@@ -330,19 +330,19 @@ Please give a detailed succinct context to situate this chunk within the overall
         logging.info(f"Total chunks after filtering and adding context: {len(chunks_with_ids)}")
         return chunks_with_ids
     
-    def save_chunks_to_jsonl(self, chunks: List[Dict], file_path: str = "chunks.jsonl"):
+    def save_chunks_to_json(self, chunks: List[Dict], file_path: str = "chunks.json"):
         """
-        Saves the chunks to a JSONL file format, which is compatible with the Embedder.
+        Saves the chunks to a JSON file format, which is compatible with the Embedder.
         Each line is a valid JSON object with 'id' and 'content' fields.
         
         Args:
             chunks (List[Dict]): List of chunk dictionaries.
-            file_path (str): Path to save the JSONL file.
+            file_path (str): Path to save the JSON file.
             
         Raises:
             Exception: If saving fails for any reason.
         """
-        logging.info(f"Saving {len(chunks)} chunks to JSONL format at {file_path}")
+        logging.info(f"Saving {len(chunks)} chunks to JSON format at {file_path}")
         try:
             # Create directory if it doesn't exist
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -353,13 +353,14 @@ Please give a detailed succinct context to situate this chunk within the overall
                     # Extract only the fields needed for embedding
                     line_dict = {
                         'id': chunk.get('id'),
-                        'content': chunk.get('content', "")
+                        'content': chunk.get('content', ""),
+                        'metadata': chunk.get('metadata', {})
                     }
                     json_record = json.dumps(line_dict, ensure_ascii=False)
                     f.write(json_record + "\n")
-            logging.info(f"Chunk data saved in JSONL format to {file_path}")
+            logging.info(f"Chunk data saved in JSON format to {file_path}")
             return file_path
         except Exception as e:
-            logging.error(f"Failed to save chunks to JSONL at {file_path}: {e}", exc_info=True)
+            logging.error(f"Failed to save chunks to JSON at {file_path}: {e}", exc_info=True)
             raise
     

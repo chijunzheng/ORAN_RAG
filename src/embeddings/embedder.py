@@ -57,17 +57,17 @@ class Embedder:
         logging.info("Initialized TextEmbeddingModel from 'text-embedding-005'")
 
     @staticmethod
-    def load_jsonl_file(file_path):
+    def load_json_file(file_path):
         """
-        Load data from a JSONL file where each line is a valid JSON object.
+        Load data from a JSON file where each line is a valid JSON object.
         
         Args:
-            file_path (str): Path to the JSONL file
+            file_path (str): Path to the JSON file
             
         Returns:
             list: List of parsed JSON objects
         """
-        logging.info(f"Loading data from JSONL file: {file_path}")
+        logging.info(f"Loading data from JSON file: {file_path}")
         results = []
         try:
             with open(file_path, 'r') as f:
@@ -78,17 +78,17 @@ class Embedder:
             logging.info(f"Successfully loaded {len(results)} records from {file_path}")
             return results
         except Exception as e:
-            logging.error(f"Failed to load JSONL file {file_path}: {e}", exc_info=True)
+            logging.error(f"Failed to load JSON file {file_path}: {e}", exc_info=True)
             raise
 
-    def generate_and_store_embeddings(self, chunks: List[Dict], local_jsonl_path: str = "embeddings.jsonl", batch_size: int = 9):
+    def generate_and_store_embeddings(self, chunks: List[Dict], local_json_path: str = "embeddings.json", batch_size: int = 9):
         """
         Generates embeddings for text chunks in batches using dynamic batching.
         The method ensures that the total token count in each API call does not exceed our SAFE_TOKEN_LIMIT.
         
         Args:
             chunks (List[Dict]): List of chunk dictionaries (each with 'id' and 'content').
-            local_jsonl_path (str, optional): Path to save the JSONL file.
+            local_json_path (str, optional): Path to save the JSON file.
             batch_size (int, optional): Maximum number of chunks per batch.
         """
         if batch_size > self.MAX_BATCH_SIZE:
@@ -147,21 +147,21 @@ class Embedder:
                     "embedding": embedding.values
                 })
 
-        # Save the embeddings to a JSONL file.
+        # Save the embeddings to a JSON file.
         try:
-            with open(local_jsonl_path, 'w', encoding='utf-8') as f:
+            with open(local_json_path, 'w', encoding='utf-8') as f:
                 for record in results:
                     f.write(json.dumps(record, ensure_ascii=False) + "\n")
-            logging.info(f"Embeddings saved to {local_jsonl_path}")
+            logging.info(f"Embeddings saved to {local_json_path}")
         except Exception as e:
-            logging.error(f"Failed to save embeddings to {local_jsonl_path}: {e}", exc_info=True)
+            logging.error(f"Failed to save embeddings to {local_json_path}: {e}", exc_info=True)
             raise
 
-        # Upload the JSONL file to GCS.
+        # Upload the JSON file to GCS.
         try:
             destination_blob_name = f"{self.embeddings_path}embeddings.json"
             embeddings_blob = self.bucket.blob(destination_blob_name)
-            embeddings_blob.upload_from_filename(local_jsonl_path, content_type="application/json")
+            embeddings_blob.upload_from_filename(local_json_path, content_type="application/json")
             logging.info(f"Uploaded embeddings to GCS at {destination_blob_name}")
         except Exception as e:
             logging.error(f"Failed to upload embeddings to GCS: {e}", exc_info=True)

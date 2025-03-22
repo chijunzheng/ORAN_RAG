@@ -282,9 +282,8 @@ def main():
             
         try:
             if not all_cleaned_documents and skip_preprocessing:
-                logging.warning("No documents available for chunking. If preprocessing was skipped, ensure documents are loaded from another source.")
                 # Load existing chunks if available
-                chunks_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.jsonl')
+                chunks_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.json')
                 if os.path.exists(chunks_file):
                     logging.info(f"Loading existing chunks from {chunks_file}")
                     with open(chunks_file, 'r') as f:
@@ -297,8 +296,8 @@ def main():
                 oran_chunks = chunker.split_documents(all_cleaned_documents)
                 logging.info(f"Split documents into {len(oran_chunks)} chunks with context.")
                 
-                # Save combined chunks to JSON file
-                chunks_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.jsonl')
+                # Save chunks to JSON file
+                chunks_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.json')
                 try:
                     chunker.save_chunks_to_json(oran_chunks, file_path=chunks_file)
                     logging.info(f"Saved chunks to {chunks_file}")
@@ -314,18 +313,6 @@ def main():
                     logging.error(f"Failed to upload chunks to GCS: {e}")
                     sys.exit(1)
                 
-                # Also save chunks in JSONL format for embedding
-                chunks_jsonl_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.jsonl')
-                try:
-                    chunker.save_chunks_to_jsonl(oran_chunks, file_path=chunks_jsonl_file)
-                    logging.info(f"Saved chunks in JSONL format to {chunks_jsonl_file}")
-                    
-                    # Upload JSONL file to GCS as well
-                    chunker.upload_to_gcs(file_path=chunks_jsonl_file, overwrite=True)
-                    logging.info("Uploaded JSONL chunks to GCS.")
-                except Exception as e:
-                    logging.error(f"Failed to save or upload JSONL chunks: {e}")
-                    sys.exit(1)
         except Exception as e:
             logging.error(f"Document chunking failed: {e}")
             sys.exit(1)
@@ -334,9 +321,7 @@ def main():
         # Load existing chunks if available and if needed for embedding
         if not skip_embedding:
             # First try to load chunks.json
-            chunks_json_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.json')
-            chunks_jsonl_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.jsonl')
-            
+            chunks_json_file = os.path.join(paths_config['embeddings_save_path'], 'chunks.json')   
             if os.path.exists(chunks_json_file):
                 logging.info(f"Loading existing chunks from {chunks_json_file} for embedding")
                 try:
@@ -346,22 +331,7 @@ def main():
                 except Exception as e:
                     logging.error(f"Failed to load JSON chunks file: {e}")
                     logging.info("Trying JSONL format instead...")
-                    if os.path.exists(chunks_jsonl_file):
-                        try:
-                            oran_chunks = Embedder.load_jsonl_file(chunks_jsonl_file)
-                        except Exception as e2:
-                            logging.error(f"Failed to load JSONL chunks file: {e2}")
-                            sys.exit(1)
-                    else:
-                        logging.error("No valid chunks file found.")
-                        sys.exit(1)
-            elif os.path.exists(chunks_jsonl_file):
-                logging.info(f"Loading existing chunks from {chunks_jsonl_file} for embedding")
-                try:
-                    oran_chunks = Embedder.load_jsonl_file(chunks_jsonl_file)
-                except Exception as e:
-                    logging.error(f"Failed to load JSONL chunks file: {e}")
-                    sys.exit(1)
+                    
             else:
                 logging.error("Cannot proceed with embedding: No chunks file found.")
                 sys.exit(1)
@@ -379,8 +349,8 @@ def main():
                 embeddings_path=gcp_config['embeddings_path'],
                 credentials=auth_manager.get_credentials()
             )
-            embeddings_file = os.path.join(paths_config['embeddings_save_path'], 'embeddings.jsonl')
-            embedder.generate_and_store_embeddings(oran_chunks, local_jsonl_path=embeddings_file)
+            embeddings_file = os.path.join(paths_config['embeddings_save_path'], 'embeddings.json')
+            embedder.generate_and_store_embeddings(oran_chunks, local_json_path=embeddings_file)
             logging.info(f"Embeddings generated and saved to {embeddings_file}")
         except Exception as e:
             logging.error(f"Embeddings generation failed: {e}")

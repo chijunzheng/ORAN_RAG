@@ -251,7 +251,7 @@ class DocumentChunker:
     
     def save_chunks_to_json(self, chunks: List[Dict], file_path: str = "chunks.json"):
         """
-        Saves the chunk mappings to a JSON Lines (.jsonl) file.
+        Saves the chunk mappings to a JSON file.
         """
         logging.info(f"Saving {len(chunks)} chunks to {file_path}")
         try:

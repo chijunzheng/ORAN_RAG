@@ -8,9 +8,8 @@ gcp:
   credentials_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My\ Drive/1.Projects/ORAN_RAG/keys/oran-rag-01462ea53452.json"
 
 paths:
-  documents: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Documents"
+  documents: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/raw_docs"
   embeddings_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/chunks_output"
-  yang_dir: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-jason.chi@telus.com/My Drive/1.Projects/RAG/Yang"
 
 vector_search:
   index_display_name: "oran_rag_contextual_index"  # Name for the index creation
