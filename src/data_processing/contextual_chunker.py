@@ -354,6 +354,10 @@ Please give a detailed succinct context to situate this chunk within the overall
                     line_dict = {
                         'id': chunk.get('id'),
                         'content': chunk.get('content', ""),
+                        'document_name': chunk.get('document_name', ""),
+                        'page_number': chunk.get('page_number', ""),
+                        'workgroup': chunk.get('workgroup', ""),
+                        'subcategory': chunk.get('subcategory', ""),
                         'metadata': chunk.get('metadata', {})
                     }
                     json_record = json.dumps(line_dict, ensure_ascii=False)

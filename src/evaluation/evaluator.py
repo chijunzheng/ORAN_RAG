@@ -431,14 +431,14 @@ class Evaluator:
             correct_choice = correct_str.strip()
 
             # Query RAG with Step-Back
-            # rag_full_answer = self.query_rag_pipeline(question, choices)
-            # rag_pred_choice = self.extract_choice_from_answer(rag_full_answer)
-            # rag_correct = (rag_pred_choice == correct_choice)
-
-            # Query RAG with RAT
-            rag_full_answer = self.query_rat_pipeline(question, choices)
+            rag_full_answer = self.query_rag_pipeline(question, choices)
             rag_pred_choice = self.extract_choice_from_answer(rag_full_answer)
             rag_correct = (rag_pred_choice == correct_choice)
+
+            # Query RAG with RAT
+            # rag_full_answer = self.query_rat_pipeline(question, choices)
+            # rag_pred_choice = self.extract_choice_from_answer(rag_full_answer)
+            # rag_correct = (rag_pred_choice == correct_choice)
 
             # Query Gemini (no RAG)
             gemini_full_answer = self.query_gemini_llm(question, choices)
