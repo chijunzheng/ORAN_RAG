@@ -108,14 +108,16 @@ def home():
 def ask():
     user_input = request.form.get('message', '')
     use_cot = request.form.get('use_cot', 'off')  # Expect "on" or "off"
-    logger.info(f"Received /ask request with use_cot: {use_cot}")
+    use_chain_of_rag = request.form.get('use_chain_of_rag', 'off')  # Expect "on" or "off"
+    logger.info(f"Received /ask request with use_cot: {use_cot}, use_chain_of_rag: {use_chain_of_rag}")
     
     conversation_history = session.get('conversation_history', [])
     
     response = chatbot.get_response(
         user_query=user_input, 
         conversation_history=conversation_history,
-        use_cot=(use_cot.lower() == 'on')
+        use_cot=(use_cot.lower() == 'on'),
+        use_chain_of_rag=(use_chain_of_rag.lower() == 'on')
     )
     
     conversation_history.append({'user': user_input, 'assistant': response})

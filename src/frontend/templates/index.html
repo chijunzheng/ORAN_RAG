@@ -359,28 +359,49 @@
         </div>
         <form id="input-form">
             <input type="text" id="message" name="message" placeholder="Message ORAN Chatbot" required>
-            <!-- Hidden input to store CoT toggle state -->
+            <!-- Hidden inputs to store toggle states -->
             <input type="hidden" id="useCotField" name="use_cot" value="off">
-            <!-- Toggle button for CoT -->
+            <input type="hidden" id="useChainOfRagField" name="use_chain_of_rag" value="off">
+            <!-- Toggle buttons -->
             <button type="button" id="cotToggleButton" onclick="toggleCot()">Think</button>
+            <button type="button" id="chainOfRagToggleButton" onclick="toggleChainOfRag()">Chain of RAG</button>
             <button type="submit" aria-label="Send Message">Send</button>
         </form>
         <div id="loading">Chatbot is typing...</div>
     </div>
     
     <script>
-        // Check if the CoT toggle button is present
+        // Check if the toggle buttons are present
         document.addEventListener("DOMContentLoaded", function() {
-            const toggleButton = document.getElementById("cotToggleButton");
-            if (toggleButton) {
-                console.log("CoT Toggle button found:", toggleButton);
+            const cotToggleButton = document.getElementById("cotToggleButton");
+            const chainOfRagToggleButton = document.getElementById("chainOfRagToggleButton");
+            
+            if (cotToggleButton) {
+                console.log("CoT Toggle button found:", cotToggleButton);
             } else {
                 console.error("CoT Toggle button NOT found! Check your HTML template.");
+            }
+            
+            if (chainOfRagToggleButton) {
+                console.log("Chain of RAG Toggle button found:", chainOfRagToggleButton);
+            } else {
+                console.error("Chain of RAG Toggle button NOT found! Check your HTML template.");
             }
         });
 
         let cotOn = false;
+        let chainOfRagOn = false;
+        
         function toggleCot() {
+            // If Chain of RAG is on, turn it off first (they are mutually exclusive)
+            if (chainOfRagOn) {
+                chainOfRagOn = false;
+                document.getElementById('useChainOfRagField').value = 'off';
+                const chainToggleButton = document.getElementById("chainOfRagToggleButton");
+                chainToggleButton.style.backgroundColor = "#d0d3d4"; // default state
+                chainToggleButton.textContent = "Chain";
+            }
+            
             cotOn = !cotOn;
             document.getElementById('useCotField').value = cotOn ? 'on' : 'off';
             const toggleButton = document.getElementById("cotToggleButton");
@@ -392,6 +413,29 @@
                 toggleButton.textContent = "Think";
             }
             console.log("CoT Toggle clicked. New state:", cotOn ? "ON" : "OFF");
+        }
+        
+        function toggleChainOfRag() {
+            // If CoT is on, turn it off first (they are mutually exclusive)
+            if (cotOn) {
+                cotOn = false;
+                document.getElementById('useCotField').value = 'off';
+                const cotToggleButton = document.getElementById("cotToggleButton");
+                cotToggleButton.style.backgroundColor = "#d0d3d4"; // default state
+                cotToggleButton.textContent = "Think";
+            }
+            
+            chainOfRagOn = !chainOfRagOn;
+            document.getElementById('useChainOfRagField').value = chainOfRagOn ? 'on' : 'off';
+            const toggleButton = document.getElementById("chainOfRagToggleButton");
+            if (chainOfRagOn) {
+                toggleButton.style.backgroundColor = "#2ecc71"; // highlighted state (green)
+                toggleButton.textContent = "Chain: ON";
+            } else {
+                toggleButton.style.backgroundColor = "#d0d3d4"; // default state
+                toggleButton.textContent = "Chain";
+            }
+            console.log("Chain of RAG Toggle clicked. New state:", chainOfRagOn ? "ON" : "OFF");
         }
         
         const form = document.getElementById('input-form');
@@ -424,8 +468,8 @@
                 },
                 body: new URLSearchParams({
                     'message': userMessage,
-                    'use_cot': document.getElementById('useCotField').value
-
+                    'use_cot': document.getElementById('useCotField').value,
+                    'use_chain_of_rag': document.getElementById('useChainOfRagField').value
                 })
             })
             .then(response => response.json())

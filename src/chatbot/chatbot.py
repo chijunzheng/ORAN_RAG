@@ -16,6 +16,7 @@ from src.evaluation.evaluator import Evaluator
 from src.vector_search.reranker import Reranker
 from src.chatbot.yang_processor import YangProcessor
 from src.chatbot.rat_processor import RATProcessor
+from src.chatbot.chain_of_rag import ChainOfRagProcessor
 
 
 
@@ -324,20 +325,35 @@ class Chatbot:
     def get_response(self, 
                      user_query: str, 
                      conversation_history: List[Dict],
-                     use_cot: bool = False
+                     use_cot: bool = False,
+                     use_chain_of_rag: bool = False
                      ) -> str:
         """
         Main entry point. 
-        Depending on user_query:
-          - If listing YANG inventory, return a summary of modules.
-          - If comparing vendor packages, call compare_vendor_packages.
-          - If referencing a specific YANG file, reassemble it.
-          - Otherwise, fallback to vector search + re-ranking + final generation.
+        Depending on user_query and flags:
+          - If use_chain_of_rag is True, uses the Chain of RAG approach
+          - If use_cot is True, uses the RATProcessor for chain-of-thought
+          - Otherwise, uses the default step-back approach
         """
         try:
+            # (1) Use Chain of RAG approach if specified
+            if use_chain_of_rag:
+                logging.info("Chain of RAG toggle is ON => using Chain of RAG approach.")
+                chain_of_rag = ChainOfRagProcessor(
+                    vector_searcher=self.vector_searcher,
+                    llm=self.generative_model,
+                    generation_config=self.generation_config,
+                    index_endpoint_display_name=self.index_endpoint_display_name,
+                    deployed_index_id=self.deployed_index_id,
+                    max_iterations=4,
+                    early_stopping=True
+                )
+                final_answer, debug_info = chain_of_rag.process_query(user_query, conversation_history)
+                logging.info(f"Chain of RAG used {len(debug_info['iterations'])} iterations, retrieved {debug_info['total_documents']} documents")
+                return final_answer
 
-            # (2) Otherwise, use RATProcessor first to generate a preliminary answer.
-            if use_cot:
+            # (2) Use RATProcessor for chain-of-thought if specified
+            elif use_cot:
                 logging.info("CoT toggle is ON => using RATProcessor for chain-of-thought approach.")
                 rat = RATProcessor(
                     vector_searcher=self.vector_searcher,
@@ -404,7 +420,7 @@ class Chatbot:
                 </Revised Chain-of-Thought>
 
                 <conversation-history>
-                {conversation_history}
+                {history_text}
                 </conversation-history>
 
                 User Query:
@@ -418,57 +434,45 @@ class Chatbot:
                 final_response = self.generative_model.generate_content(content, generation_config=self.generation_config)
                 final_answer = final_response.text.strip() if final_response and final_response.text.strip() else revised_cot
             
-
                 return final_answer
             
-            # 1) YANG or vendor-specific or ORAN queries => YangProcessor
-            # if "yang" in user_query.lower() or "24a" in user_query.lower() or "24b" in user_query.lower() and "oran" in user_query.lower():
-            #     # Use the same vector_searcher-based YangProcessor
-            #     all_yang_chunks = list(self.vector_searcher.chunks.values())
-            #     return self.yang_processor.get_analysis(
-            #         query=user_query,
-            #         yang_chunks=all_yang_chunks,
-            #         llm=self.generative_model,
-            #         generation_config=self.yang_generation_config
-            #     )
-            
-           # else:
-            # Use the default step-back approach
-            logging.info("CoT toggle is OFF => using step-back approach (core concept + chunk retrieval).")
-            
-            # (1) Get core concept
-            concept = self.generate_core_concept(user_query, conversation_history)
-            logging.info(f"Step-Back concept extracted: {concept}")
+            # (3) Use default step-back approach
+            else:
+                logging.info("Both toggles are OFF => using step-back approach (core concept + chunk retrieval).")
+                
+                # (1) Get core concept
+                concept = self.generate_core_concept(user_query, conversation_history)
+                logging.info(f"Step-Back concept extracted: {concept}")
 
-            # (2) Vector search
-            search_query = f"User query: {user_query}\nCore concept: {concept}"
-            retrieved_chunks = self.vector_searcher.vector_search(
-                index_endpoint_display_name=self.index_endpoint_display_name,
-                deployed_index_id=self.deployed_index_id,
-                query_text=search_query,
-                num_neighbors=self.num_neighbors
-            )
-            if not retrieved_chunks:
-                logging.warning("No chunks retrieved for the query.")
-                return "I'm sorry, I couldn't find relevant information."
+                # (2) Vector search
+                search_query = f"User query: {user_query}\nCore concept: {concept}"
+                retrieved_chunks = self.vector_searcher.vector_search(
+                    index_endpoint_display_name=self.index_endpoint_display_name,
+                    deployed_index_id=self.deployed_index_id,
+                    query_text=search_query,
+                    num_neighbors=self.num_neighbors
+                )
+                if not retrieved_chunks:
+                    logging.warning("No chunks retrieved for the query.")
+                    return "I'm sorry, I couldn't find relevant information."
 
-            # (3) Rerank
-            reranked_chunks = self.reranker.rerank(query=search_query, records=retrieved_chunks)
-            if not reranked_chunks:
-                logging.warning("Reranking returned no results.")
-                return "I'm sorry, I couldn't find relevant info after reranking."
+                # (3) Rerank
+                reranked_chunks = self.reranker.rerank(query=search_query, records=retrieved_chunks)
+                if not reranked_chunks:
+                    logging.warning("Reranking returned no results.")
+                    return "I'm sorry, I couldn't find relevant info after reranking."
 
-            # (4) Build final prompt
-            prompt_content = self.generate_prompt_content(
-                query=user_query,
-                concept=concept,
-                chunks=reranked_chunks,
-                conversation_history=conversation_history
-            )
+                # (4) Build final prompt
+                prompt_content = self.generate_prompt_content(
+                    query=user_query,
+                    concept=concept,
+                    chunks=reranked_chunks,
+                    conversation_history=conversation_history
+                )
 
-            # (5) Generate final response
-            answer = self.generate_response(prompt_content)
-            return answer.strip() if answer else "I'm sorry, I couldn't generate a response."
+                # (5) Generate final response
+                answer = self.generate_response(prompt_content)
+                return answer.strip() if answer else "I'm sorry, I couldn't generate a response."
 
         except Exception as e:
             logging.error(f"Error in get_response: {e}", exc_info=True)
