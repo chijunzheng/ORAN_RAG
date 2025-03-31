@@ -23,5 +23,6 @@ flask_session/
 # Ignore all files in the evaluation_results directory
 evaluation_results
 
+
 # Ignore all files in the evaluation_dataset directory
 evaluation_dataset

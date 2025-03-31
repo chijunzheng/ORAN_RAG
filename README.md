@@ -5,6 +5,7 @@
 - [ORAN\_RAG](#oran_rag)
   - [Table of Contents](#table-of-contents)
   - [Introduction](#introduction)
+  - [Architectural Diagram](#architectural-diagram)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
   - [Configuration](#configuration)
@@ -15,10 +16,18 @@
   - [Features](#features)
   - [Evaluation](#evaluation)
     - [Steps](#steps)
+    - [Running Evaluations Directly](#running-evaluations-directly)
+      - [Available Pipeline Options](#available-pipeline-options)
+      - [Command-Line Arguments](#command-line-arguments-1)
+      - [Evaluation Examples](#evaluation-examples)
+      - [Interpreting Results](#interpreting-results)
 
 ## Introduction
 
 **ORAN RAG** is a comprehensive Retrieval-Augmented Generation (RAG) system tailored for O-RAN (Open Radio Access Network) documents. It leverages Google Cloud's Vertex AI and various other GCP services to process, index, and enable intelligent querying over a large corpus of O-RAN-related documents. The system includes functionalities for document preprocessing, chunking, embedding generation, vector indexing, chatbot interaction, and model evaluation.
+
+## Architectural Diagram
+![diagram](./assets/RAG.drawio.png)
 
 ## Prerequisites
 
@@ -265,57 +274,73 @@ The dataset is from an open sourced O-RAN benchmark. Only the hard Q&A dataset w
    - **Accuracy Plots:**
      - A bar chart comparing the accuracies of the RAG pipeline and Gemini LLM is saved as accuracy_plots.png.
 
-## New Feature: Contextual Chunking
+### Running Evaluations Directly
 
-The system now supports contextual chunking, which improves retrieval accuracy by adding document-level context to each chunk before embedding it. This technique helps situate each chunk within the larger document, making retrieval more accurate.
-
-### Running the Contextual Chunker
-
-You can run the contextual chunker in two ways:
-
-1. As part of the full pipeline:
-```bash
-python src/main.py --config configs/config.yaml
-```
-
-2. Using the standalone script (helpful if you encounter network issues with the full pipeline):
-```bash
-python run_chunker.py --config configs/config.yaml
-```
-
-The standalone script has additional options:
-```bash
-python run_chunker.py --help
-```
-
-### Implementation Details
-
-The contextual chunker extends the existing `DocumentChunker` class and adds context generation for each chunk. It works by:
-
-1. Identifying the position of each chunk within the document (beginning, middle, end sections)
-2. Extracting section headings that appear before the chunk 
-3. Including document metadata in the chunk content
-4. Using the document start text to provide additional context
-
-This implementation is lightweight and doesn't require external API calls, making it reliable in environments with network constraints.
-
-## Running Tests
-
-A simple test script is available to verify the contextual chunker functionality:
+You can run evaluations directly using the dedicated evaluation script, which offers more flexibility than using the `--evaluation` flag in the main script:
 
 ```bash
-python test_chunker.py
+python src/evaluation/run_evaluation.py [OPTIONS]
 ```
 
-## Configuration
+#### Available Pipeline Options
 
-The contextual chunking behavior can be configured in the `configs/config.yaml` file under the `chunking` section:
+ORAN RAG supports three different RAG pipelines for evaluation:
 
-```yaml
-chunking:
-  chunk_size: 1536  # Maximum number of characters per chunk
-  chunk_overlap: 256  # Number of overlapping characters between chunks
-  separators: [". ", "? ", "! ", "\n\n"]
-  min_char_count: 100
-```
+1. **Default RAG Pipeline**: Basic RAG with a step-back approach for core concept identification
+2. **Chain of RAG Pipeline**: An iterative RAG approach that generates follow-up queries for deeper exploration
+3. **RAT Pipeline**: Retrieval-Augmented Thoughts pipeline that incorporates chain-of-thought reasoning
+
+#### Command-Line Arguments
+
+- **Pipeline Selection:**
+  - `--pipeline`: RAG pipeline to evaluate (choices: default, chain_of_rag, rat)
+  - Default: `default`
+
+- **Evaluation Parameters:**
+  - `--num-questions`: Number of questions to evaluate (default: value from config)
+  - `--max-workers`: Maximum number of worker threads for parallel evaluation (default: value from config)
+  - `--results-dir`: Directory to save evaluation results (default: directory from config)
+  - `--visualize`: Generate visualization of evaluation results (default: False)
   
+- **Configuration:**
+  - `--config`: Path to the configuration file (default: configs/config.yaml)
+
+#### Evaluation Examples
+
+1. **Evaluate Default RAG Pipeline:**
+   ```bash
+   python src/evaluation/run_evaluation.py --pipeline default
+   ```
+
+2. **Evaluate Chain of RAG Pipeline:**
+   ```bash
+   python src/evaluation/run_evaluation.py --pipeline chain_of_rag
+   ```
+
+3. **Evaluate with Limited Questions:**
+   ```bash
+   python src/evaluation/run_evaluation.py --pipeline chain_of_rag --num-questions 50
+   ```
+
+4. **Run Parallel Evaluation:**
+   ```bash
+   python src/evaluation/run_evaluation.py --pipeline default --max-workers 4
+   ```
+
+#### Interpreting Results
+
+The evaluation script generates an Excel file with detailed results and optionally a visualization comparing the accuracy of the selected RAG pipeline against the raw Gemini LLM. The results file is saved in the following location:
+
+```
+evaluation_results/{pipeline_name}_pipeline/evaluation_results_{pipeline}_{num_questions}_{timestamp}.xlsx
+```
+
+The Excel file includes columns for:
+- Question
+- Correct Answer
+- {Pipeline} Predicted Answer
+- {Pipeline} Correct (boolean)
+- Gemini Predicted Answer
+- Gemini Correct (boolean)
+
+If the `--visualize` flag is used, a bar chart comparing the accuracy of the selected pipeline and the Gemini LLM will be saved in the same directory.
