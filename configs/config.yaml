@@ -14,7 +14,7 @@ paths:
 vector_search:
   index_display_name: "oran_rag_contextual_index"  # Name for the index creation
   endpoint_display_name: "oran_rag_contextual_endpoint"  # Name for the index deployment
-  deployed_index_id: "oran_rag_contextual_index_deployed" # Name for the deployed index
+  deployed_index_id: "oran_rag_contextual_index__1743254548226" # Name for the deployed index
 
   # Parameters for index creation
   index_description: "Index for O-RAN document embeddings"
@@ -55,6 +55,7 @@ logging:
 
 evaluation:
   num_questions: 3243
+  qna_dataset_local_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/evaluation_dataset/validation_set_2.json"
   excel_file_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/evaluation_results/contextual_chunking/evaluation_results.xlsx"
   max_workers: 1
   plot_save_path: "/Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/evaluation_results/contextual_chunking/accuracy_plots.png"

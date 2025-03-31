@@ -9,6 +9,7 @@ __pycache__/
 *.csv
 *.json
 raw_docs/
+
 # Ignore log directory
 log/
 
@@ -17,5 +18,10 @@ log/
 chunks*.json
 flask_session/
 .env
-
 .cursor
+
+# Ignore all files in the evaluation_results directory
+evaluation_results
+
+# Ignore all files in the evaluation_dataset directory
+evaluation_dataset

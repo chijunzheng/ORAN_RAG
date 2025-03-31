@@ -1,6 +1,7 @@
 import logging
 import random
 import time
+import os
 from typing import List, Dict
 from vertexai.generative_models import Content, GenerationConfig, Part
 from src.chatbot.rat_processor import RATProcessor  
@@ -28,6 +29,25 @@ class RATProcessorEval(RATProcessor):
         super().__init__(vector_searcher, llm, generation_config, index_endpoint_display_name, deployed_index_id, num_iterations=num_iterations)
         self.reranker = reranker  # Not necessarily used here but can be passed if needed
         
+        # Check if we're using the API key integration (google.generativeai package)
+        self.using_api_key = 'google.generativeai' in str(type(self.llm))
+        
+        if self.using_api_key:
+            # For google.generativeai, we'll set up generation parameters
+            self.cot_generation_params = {
+                "temperature": 0.2,
+                "top_p": 0.95,
+                "max_output_tokens": 8192,
+            }
+            # Import the generativeai module for configuration
+            try:
+                import google.generativeai as genai
+                self.genai = genai
+                self.cot_generation_config = genai.GenerationConfig(**self.cot_generation_params)
+            except ImportError:
+                logging.error("Failed to import google.generativeai module")
+                self.cot_generation_config = None
+        
 
     def _safe_generate_content(self, content: Content, config: GenerationConfig = None, retries: int = 10, backoff_factor: int = 2, max_wait: int = 300) -> str:
         """
@@ -42,7 +62,24 @@ class RATProcessorEval(RATProcessor):
         wait_time = 1
         while True:
             try:
-                response = self.llm.generate_content(content, generation_config=config)
+                # Handle different API types
+                if self.using_api_key:
+                    # For google.generativeai, we can directly pass the text
+                    if isinstance(content, Content):
+                        # Extract the text from the Content object
+                        prompt_text = ""
+                        for part in content.parts:
+                            if hasattr(part, 'text'):
+                                prompt_text += part.text
+                        
+                        response = self.llm.generate_content(prompt_text, generation_config=config)
+                    else:
+                        # If it's already a string
+                        response = self.llm.generate_content(content, generation_config=config)
+                else:
+                    # For vertexai.generative_models, we need to use the Content object
+                    response = self.llm.generate_content(content, generation_config=config)
+                    
                 response_text = response.text.strip()
                 if not response_text or response_text.lower() == "error":
                     raise ValueError("Empty or error response.")
@@ -96,8 +133,16 @@ class RATProcessorEval(RATProcessor):
 
         Chain-of-Thought:
         """
-        content = Content(role="user", parts=[Part.from_text(prompt)])
-        initial_cot = self._safe_generate_content(content, config=self.cot_generation_config)
+        
+        # Handle different API types
+        if self.using_api_key:
+            # For google.generativeai, we can directly pass the text
+            initial_cot = self._safe_generate_content(prompt, config=self.cot_generation_config)
+        else:
+            # For vertexai.generative_models, we need to create a Content object
+            content = Content(role="user", parts=[Part.from_text(prompt)])
+            initial_cot = self._safe_generate_content(content, config=self.cot_generation_config)
+            
         logging.info(f"Initial CoT (first 1000 chars): {initial_cot[:1000]}...")
         return initial_cot
 
@@ -119,8 +164,15 @@ class RATProcessorEval(RATProcessor):
             "{query}"
 
             Retrieval Query (output only plain text):"""
-        content = Content(role="user", parts=[Part.from_text(prompt)])
-        retrieval_query = self._safe_generate_content(content, config=self.cot_generation_config)
+            
+        # Handle different API types
+        if self.using_api_key:
+            # For google.generativeai, we can directly pass the text
+            retrieval_query = self._safe_generate_content(prompt, config=self.cot_generation_config)
+        else:
+            # For vertexai.generative_models, we need to create a Content object
+            content = Content(role="user", parts=[Part.from_text(prompt)])
+            retrieval_query = self._safe_generate_content(content, config=self.cot_generation_config)
 
         logging.info(f"Retrieval Query: {retrieval_query}")
         return retrieval_query
@@ -141,7 +193,7 @@ class RATProcessorEval(RATProcessor):
             index_endpoint_display_name=self.index_endpoint_display_name,
             deployed_index_id=self.deployed_index_id,
             )
-        # Build a text block that contains each chunk’s metadata
+        # Build a text block that contains each chunk's metadata
         context_text = ""
         for i, chunk in enumerate(retrieved, start=1):
             doc_meta = chunk.get("metadata", {})
@@ -183,8 +235,16 @@ class RATProcessorEval(RATProcessor):
             "{query}"
 
             Revised Chain-of-Thought:"""
-        content = Content(role="user", parts=[Part.from_text(prompt)])
-        revised_cot = self._safe_generate_content(content, config=self.cot_generation_config)
+            
+        # Handle different API types
+        if self.using_api_key:
+            # For google.generativeai, we can directly pass the text
+            revised_cot = self._safe_generate_content(prompt, config=self.cot_generation_config)
+        else:
+            # For vertexai.generative_models, we need to create a Content object
+            content = Content(role="user", parts=[Part.from_text(prompt)])
+            revised_cot = self._safe_generate_content(content, config=self.cot_generation_config)
+            
         logging.info(f"[Eval] Revised CoT (first 1000 chars): {revised_cot[:1000]}...")
         return revised_cot
 
@@ -195,10 +255,18 @@ class RATProcessorEval(RATProcessor):
           2. Iteratively refine the chain-of-thought.
           3. Return the final revised chain-of-thought.
         """
-        current_cot = self.generate_initial_cot(query, choices=choices)
-        for i in range(self.num_iterations):
-            logging.info(f"[Eval] RAT iteration {i+1} starting.")
-            retrieval_query = self.generate_retrieval_query(current_cot, query)
-            retrieved_context = self.retrieve_context(retrieval_query)
-            current_cot = self.revise_cot(current_cot, retrieved_context, query)
-        return current_cot
+        try:
+            current_cot = self.generate_initial_cot(query, choices=choices)
+            for i in range(self.num_iterations):
+                logging.info(f"[Eval] RAT iteration {i+1} starting.")
+                retrieval_query = self.generate_retrieval_query(current_cot, query)
+                retrieved_context = self.retrieve_context(retrieval_query)
+                current_cot = self.revise_cot(current_cot, retrieved_context, query)
+            return current_cot
+        except Exception as e:
+            # Log the error
+            logging.error(f"Error in RAT processing: {e}", exc_info=True)
+            
+            # Return an error message as the result
+            error_message = f"Error processing query with RAT: {str(e)}"
+            return error_message

@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import List, Dict, Tuple, Any
 from vertexai.generative_models import (
     GenerativeModel,
@@ -36,13 +37,32 @@ class ChainOfRagProcessor:
         self.early_stopping = early_stopping
         self.index_endpoint_display_name = index_endpoint_display_name
         self.deployed_index_id = deployed_index_id
-
-        # Use specific generation config for Chain of RAG
-        self.chain_generation_config = GenerationConfig(
-            temperature=0,
-            top_p=1,
-            max_output_tokens=8192,
-        )
+        
+        # Check if we're using the API key integration (google.generativeai package)
+        self.using_api_key = 'google.generativeai' in str(type(self.llm))
+        
+        if self.using_api_key:
+            # For google.generativeai, we'll set up generation parameters
+            self.chain_generation_params = {
+                "temperature": 0,
+                "top_p": 1,
+                "max_output_tokens": 8192,
+            }
+            # Import the generativeai module for configuration
+            try:
+                import google.generativeai as genai
+                self.genai = genai
+                self.chain_generation_config = genai.GenerationConfig(**self.chain_generation_params)
+            except ImportError:
+                logging.error("Failed to import google.generativeai module")
+                self.chain_generation_config = None
+        else:
+            # Use specific generation config for Chain of RAG with Vertex AI
+            self.chain_generation_config = GenerationConfig(
+                temperature=0,
+                top_p=1,
+                max_output_tokens=8192,
+            )
 
     def _generate_follow_up_query(self, main_query: str, intermediate_context: List[str]) -> str:
         """
@@ -55,27 +75,80 @@ class ChainOfRagProcessor:
         Returns:
             Follow-up query
         """
-        prompt = f"""You are using a search tool to answer the main query by iteratively searching the database. Given the following intermediate queries and answers, generate a new simple follow-up question that can help answer the main query. You may rephrase or decompose the main query when previous answers are not helpful. Ask simple follow-up questions only as the search tool may not understand complex questions.
+        prompt = f"""<|system|>
+**Your Role:** You are an Expert Research Strategist and Decomposer, guiding a RAG system with a fixed, internal knowledge base. Your mission is to iteratively formulate the *single most strategically valuable* follow-up question to build a *comprehensive, accurate, and deeply informative* answer to the main query, using only the available internal documents.
 
-Guidelines for generating the follow-up question:
-1. The initial follow-up question should be exactly the same as the main query.
-2. Review previous answers carefully and assess whether it is relevant to the main query - build upon it to dig deeper
-3. Keep questions simple and specific - avoid compound questions
-4. Stay within the scope of the main query. Always assess the relevance of the follow-up question to the main query.
-5. Keep digging deeper into the main query, intermediate queries and answers until the answer satisfies the main query.
-6. Do not ask follow-up questions that are not relevant to the main query.
-7. If intermediate answer produces "No relevant information found", you can ask a new follow-up question based on the main query and the previous answers.
+**Your Goal:** Generate the *next specific query* for the internal semantic search tool. This query should target the most critical information gap, considering previous findings, the required level of detail, and explicitly acknowledging limitations of the knowledge base revealed by prior searches.
 
-## Previous intermediate queries and answers
-{intermediate_context}
+**CRITICAL CONSTRAINTS:**
+1.  **Internal Knowledge Only:** The search tool accesses ONLY information within the provided context (previous answers) and the underlying indexed documents. Assume no external knowledge or access.
+2.  **No External Resource Requests:** NEVER ask for external URLs, websites, document repositories, or information outside the system's scope.
+3.  **Acknowledge Unavailability:** If previous searches for a specific detail (e.g., "internal algorithm X", "specific parameter value Y", "exact log format Z") consistently resulted in "No relevant information found" or explicit statements of absence, treat that specific level of granular detail as **confirmed unavailable**.
+4.  **Avoid Futile Repetition:** DO NOT re-ask queries (even rephrased) targeting information already confirmed as unavailable (Constraint 3). This wastes resources. If a specific approach failed, pivot.
 
-## Main query to answer
+<|user|>
+**Context:**
+<main_query>
 {main_query}
+</main_query>
 
-Respond with a simple follow-up question that will help answer the main query, do not explain yourself or output anything else.
+<previous_context>
+{intermediate_context}
+</previous_context>
+*(If empty, this is the first iteration)*
+
+**Task:**
+Generate the *single best* follow-up question by executing the following reasoning process:
+
+**Reasoning Process:**
+
+1.  **Analyze Situation & Goal:**
+    *   **Main Query Objective & Depth:** Re-read the `<main_query>`. What specific information (e.g., steps, components, definitions, relationships, configurations, *mechanisms*, *parameters*, *reasons*) is ultimately required for a *complete and technically deep* answer? What level of detail seems necessary (overview vs. specific interactions)? What would a good structure for the final answer look like?
+    *   **Previous Context Review:** Examine `<previous_context>`:
+        *   **Successes:** What parts of the main query have been addressed? What key O-RAN terms, procedures (e.g., "M-Plane startup", "NETCONF RPCs", "PTP sync states"), entities, parameters, or document sections were successfully identified and described? Was the *required depth* achieved for these parts?
+        *   **Failures & Gaps:** What parts of the main query remain unanswered or lack sufficient depth? Crucially, identify any specific information targeted by previous queries that resulted in "No relevant information found" or explicit confirmation of absence. Note the *semantic core* and *level of detail* of what was missing (e.g., "specific internal O-RU processing logic", "exact value for parameter X").
+        *   **Implicit Structure:** Note how the gathered information is starting to form parts of the potential final answer structure.
+
+2.  **Identify Most Critical Gap & Likely Availability:**
+    *   Based on the analysis (including required depth), what is the *most significant* remaining gap in information needed to fulfill the `<main_query>` objective comprehensively and accurately?
+    *   Critically assess: Is information likely to exist in the documents to fill this *specific* gap at the *required level of detail*, given previous successes and failures? Avoid pursuing details previously shown to be unavailable.
+
+3.  **Select Query Strategy (Choose ONE):**
+    *   **(A) Drill-Down for Depth/Mechanism:** If a previous answer successfully identified a relevant concept/procedure but lacked the depth, *parameters*, *mechanisms*, *specific steps*, or *reasons* required by the `<main_query>` objective, formulate a question asking for these *specific aspects about that concept AS DESCRIBED IN THE DOCUMENTS*. **Use this if the concept is central and needs deeper explanation.** (e.g., "What specific parameters and mechanisms does `o-ran-fm.yang` define for fault reporting according to the documents?" or "What are the detailed steps and reasons for the O-RU stopping transmission during FREERUN state based on the sources?")
+    *   **(B) Explore Unaddressed Component:** If a distinct, significant component or aspect of the `<main_query>` has not been addressed *and* information for it hasn't been previously shown to be unavailable, formulate a question targeting *that specific component*. **Use this to ensure breadth of coverage.** (e.g., If the main query covers C/U/S plane impacts and S-plane hasn't been detailed, ask: "How specifically does jitter impact S-Plane PTP synchronization accuracy according to the documents?")
+    *   **(C) Strategic Pivot after Failure:** If the *most recent* query failed (returned "No relevant information" or similar) for a specific detail:
+        *   **Option C1 (Alternative Component):** If other significant components of the main query remain unexplored, switch focus to one of them (Use Strategy B).
+        *   **Option C2 (Higher-Level View/Purpose):** If the failed query sought very specific details, try asking about the *overall process*, *purpose*, or *key principles* of that concept *as described in the documents*, if that higher level view is still relevant and wasn't covered, and might yield useful context. (e.g., If "specific calculation for `ta3`" failed, try "What is the purpose and factors influencing the `ta3` processing deadline in the O-RU based on the documents?")
+        *   **Option C3 (Related Concept):** If a related, relevant concept was mentioned in *earlier successful* answers, consider exploring that instead (Use Strategy A on that concept, focusing on depth/mechanism).
+        *   **Crucially:** *Do not* simply rephrase the failed query. Pick a genuinely different angle or target based on C1, C2, or C3.
+
+4.  **Craft the Follow-up Question:**
+    *   Formulate a *simple, unambiguous question* based *strictly* on the chosen strategy (A, B, or C).
+    *   Use precise O-RAN terminology identified from the `<main_query>` or successful `<previous_context>`.
+    *   Frame the question to elicit *specific details, mechanisms, parameters, steps, or reasons* contained within the documents (e.g., "What parameters define...", "Describe the mechanism for X...", "What steps are involved in Y...", "How is Z configured/handled according to the sources?").
+    *   Ensure the question focuses on a *single*, well-defined target.
+
+5.  **Final Check:**
+    *   Does the question directly advance the goal of answering the `<main_query>` comprehensively and accurately?
+    *   Does it seek the appropriate *level of detail*?
+    *   Does it strictly adhere to ALL constraints (Internal Knowledge, No External Links, Avoid Futile Repetition)?
+    *   Is it the most strategic choice based on the current context and reasoning steps?
+
+**Output Format:**
+Respond ONLY with the text of the follow-up question. Do NOT include explanations, apologies, introductions, or any other surrounding text.
+
+**Follow-up Question:**
+<|assistant|>
 """
-        content = Content(role="user", parts=[Part.from_text(prompt)])
-        response = self.llm.generate_content(content, generation_config=self.chain_generation_config)
+        # Handle different API types
+        if self.using_api_key:
+            # For google.generativeai, we can directly pass the text
+            response = self.llm.generate_content(prompt, generation_config=self.chain_generation_config)
+        else:
+            # For vertexai.generative_models, we need to create a Content object
+            content = Content(role="user", parts=[Part.from_text(prompt)])
+            response = self.llm.generate_content(content, generation_config=self.chain_generation_config)
+        
         follow_up_query = response.text.strip() if response and response.text.strip() else ""
         logging.info(f"Follow-up Query: {follow_up_query}")
         return follow_up_query
@@ -96,7 +169,7 @@ Respond with a simple follow-up question that will help answer the main query, d
         
         retrieved = self.vector_searcher.vector_search(
             query_text=query, 
-            num_neighbors=5,
+            num_neighbors=10,
             index_endpoint_display_name=self.index_endpoint_display_name,
             deployed_index_id=self.deployed_index_id,
         )
@@ -131,247 +204,302 @@ Respond with a simple follow-up question that will help answer the main query, d
                 f"{chunk.get('content', 'No content')}\n\n"
             )
 
-        prompt = f"""Given the following documents, generate an appropriate answer for the query. DO NOT hallucinate any information, only use the provided documents to generate the answer. Respond "No relevant information found" if the documents do not contain useful information.
+        prompt = f"""<|system|>
+**Your Role:** You are a Critical Information Synthesizer and Relevance Assessor. Your primary task is to determine if the provided documents *directly and specifically* answer the given query, including necessary details like mechanisms or parameters, and if so, synthesize a concise and accurate answer using *only* that relevant information.
 
-## Documents
-{context_text}
-
-## Query
+**Your Goal:** Create a trustworthy intermediate answer that:
+    1.  Rigorously assesses if the provided documents contain information that *specifically addresses the core question and required level of detail* asked in the `<query>`.
+    2.  If relevant information exists, synthesizes it accurately, including key *mechanisms, parameters, steps, reasons, relationships, or contrasts* found in the text, relying solely on the evidence within the supplied snippets.
+    3.  Clearly indicates when the documents, despite potentially containing related keywords, *do not actually answer the specific question asked* or provide the *required level of detail*.
+    4.  Avoids hallucination and external knowledge.
+<|user|>
+**Context:**
+<query>
 {query}
+</query>
 
-### Response Guidelines:
-1. Provide a detailed step-by-step answer based on the documents.
-2. For each significant statement or fact, include a reference to the source document using the following format:
-   - After each statement, add the document name and page number from the "Source:" field. For example: "O-RAN.WG4.MP, page 20" or "(O-RAN.WG4.MP, page 20)"
-   - DO NOT use generic references like "Document 0" or "Document 1" - always use the actual document name
-3. When documents have conflicting information, cite all relevant sources and explain the differences.
-4. If citing multiple documents for one statement, list them all: "(O-RAN.WG4.MP, page 20; O-RAN.WG7, page 96)"
-5. Only use information from the provided documents - do not hallucinate.
-6. Extract the document name and page number from the "Source:" field that appears at the end of each document.
+<documents>
+{context_text}
+</documents>
+*(Each document block `<Document i>` contains 'Content' and 'Metadata' including 'Document Name' and 'Page'.)*
 
-Respond with a detailed and well-referenced answer that will be valuable for generating the final response.
+**Task:**
+1.  **Critically Analyze Relevance & Detail:** Carefully read the `<query>`. Understand the specific question, the *type of information needed* (e.g., process, definition, parameter list, comparison, mechanism), and the *implied level of detail*. Then, examine each document in `<documents>`. Determine if the document's content provides a **direct and specific answer** to the question, including the necessary details (e.g., does it explain *how* or *why*? Does it list the *parameters* involved? Does it detail the *steps*? Does it provide the *contrast* asked for?). Do not rely on keyword matching alone; assess semantic meaning, intent, and the presence of required specifics.
+
+2.  **Synthesis Assignment:**
+    * If relevant information is found that specifically addresses the query at the needed level of detail:
+        * Synthesize a clear, accurate answer that preserves key terminology, parameters, and system mechanics from the source text.
+        * Focus on the precise question asked and only include relevant information.
+        * Ensure clarity; do not maintain ambiguities from the source text (e.g., be specific about which system is doing what).
+        * Clearly label information drawn from different documents if they represent different perspectives, e.g., [From Doc 1: ...] vs [From Doc 3: ...] 
+    * If no relevant information is found (content is unrelated to query) or information only partially addresses the query (relevant topic but inadequate detail):
+        * Respond with "No relevant information found."
+        * Briefly explain why the documents don't satisfy the query (e.g., "Documents discuss concept X but provide no details on steps/parameters/reasons," or "Documents mention system Y but not in relation to process Z").
+
+**Prohibited Strategies:**
+* Do NOT hallucinate or add external knowledge beyond what is in the documents.
+* Do NOT rely solely on keyword matching. A document mentioning terms like those in the query is not necessarily answering the question's specific intent.
+* Do NOT provide lengthy summaries of all documents. Focus on directly addressing the query.
+
+**Output Format:**
+If the documents contain relevant information: Provide the synthesized answer. Clearly cite document numbers [Doc X].
+If not: State "No relevant information found." followed by a brief explanation of the mismatch.
+
+**Response:**
+<|assistant|>
 """
-        content = Content(role="user", parts=[Part.from_text(prompt)])
-        response = self.llm.generate_content(content, generation_config=self.chain_generation_config)
-        intermediate_answer = response.text.strip() if response and response.text.strip() else "No relevant information found."
+        # Handle different API types
+        if self.using_api_key:
+            # For google.generativeai, we can directly pass the text
+            response = self.llm.generate_content(prompt, generation_config=self.chain_generation_config)
+        else:
+            # For vertexai.generative_models, we need to create a Content object
+            content = Content(role="user", parts=[Part.from_text(prompt)])
+            response = self.llm.generate_content(content, generation_config=self.chain_generation_config)
+            
+        intermediate_answer = response.text.strip() if response and response.text else ""
         logging.info(f"Intermediate Answer (first 200 chars): {intermediate_answer[:200]}...")
         return intermediate_answer
 
     def _check_has_enough_info(self, query: str, intermediate_contexts: List[str]) -> bool:
         """
-        Checks if we have enough information to answer the main query.
+        Checks if we have gathered enough information to answer the query.
         
         Args:
-            query: Main query
-            intermediate_contexts: List of intermediate query-answer pairs
+            query: Original user query
+            intermediate_contexts: List of intermediate Q&A pairs
             
         Returns:
-            Whether we have enough information
+            True if we have enough information, False otherwise
         """
         if not intermediate_contexts:
             return False
+            
+        # Join intermediate contexts
+        intermediate_context_text = "\n\n".join(intermediate_contexts)
+        
+        prompt = f"""<|system|>
+**Your Role:** You are an Information Sufficiency Assessor helping a Chain-of-Thought system decide when to stop gathering information. Your job is to determine if enough relevant information has been collected to completely and accurately answer a user's query, or if more specific information is still needed.
 
-        prompt = f"""Given the following intermediate queries and answers, carefully assess whether you have SUFFICIENT information to provide a COMPREHENSIVE answer to the main query.
+**Your Goal:** Provide a binary assessment (YES/NO) of whether the collected information adequately covers all aspects of the query at the level of detail implicitly required.
 
-## Intermediate queries and answers
-{intermediate_contexts}
-
-## Main query
+<|user|>
+**Context:**
+<original_query>
 {query}
+</original_query>
 
-Before responding, consider the following criteria:
+<collected_information>
+{intermediate_context_text}
+</collected_information>
 
-1. COMPREHENSIVENESS: Do you have detailed information covering ALL key aspects of the query?
-2. TECHNICAL DEPTH: Have you gathered specific technical details, protocols, specifications, and implementation details?
-3. MULTIPLE SOURCES: Has the information been verified from multiple different documents or sources?
-4. COMPLETENESS: Can you provide a complete answer that doesn't leave significant gaps in understanding?
-5. SPECIFICITY: Do you have specific document references for all major claims you would make?
-6. SUFFICIENT CONTEXT: Do you understand the broader context of the topic to provide accurate information?
+**Task:**
+Analyze the original query and all collected information to decide if:
 
-IMPORTANT: Be CONSERVATIVE in your assessment. It is better to gather MORE information than to stop early with an incomplete answer.
+1. The query has been addressed **completely** - all aspects and sub-components of the question have information addressing them
+2. The information is **sufficiently detailed** - the appropriate level of detail (e.g., mechanisms, parameters, reasons, steps) implied by the original query has been met
+3. The information is **directly relevant** - the collected information directly pertains to the specific details asked in the query
 
-Set an extremely high standard - only say "Yes" if you have TRULY COMPREHENSIVE information about ALL aspects of the query.
+Consider:
+* Does the collected information directly address each aspect of the original query?
+* Is the level of detail sufficient for the query's apparent purpose?
+* Would a domain expert consider this information sufficient to give a complete, accurate answer?
+* Are there any significant aspects, steps, mechanisms, or parameters mentioned in the query that remain unaddressed?
 
-If ANYTHING is missing, respond with "No".
+Respond with ONLY:
+* "YES" if the collected information is sufficient to provide a complete, accurate, and appropriate answer to the query.
+* "NO" if more information is needed on any significant aspect of the query or if the current information lacks the appropriate level of detail.
 
-Respond with "Yes" or "No" ONLY - do not explain your reasoning or output anything else.
+**Response (YES/NO only):**
+<|assistant|>
 """
-        content = Content(role="user", parts=[Part.from_text(prompt)])
-        response = self.llm.generate_content(content, generation_config=self.chain_generation_config)
-        has_enough_info = response.text.strip().lower() == "yes"
-        return has_enough_info
+        try:
+            # Handle different API types
+            if self.using_api_key:
+                # For google.generativeai, we can directly pass the text
+                response = self.llm.generate_content(prompt, generation_config=self.chain_generation_config)
+            else:
+                # For vertexai.generative_models, we need to create a Content object
+                content = Content(role="user", parts=[Part.from_text(prompt)])
+                response = self.llm.generate_content(content, generation_config=self.chain_generation_config)
+            
+            result = response.text.strip().upper()
+            has_enough = result.startswith("YES")
+            
+            if has_enough:
+                logging.info("Early stopping after iteration {}: Have enough information")
+            
+            return has_enough
+        except Exception as e:
+            logging.error(f"Error checking if we have enough info: {e}")
+            return False
 
     def _generate_final_answer(self, query: str, intermediate_context: List[str], retrieved_documents: List[Dict]) -> str:
         """
-        Generates the final answer based on all the intermediate context.
+        Generates the final answer based on all the gathered information.
         
         Args:
-            query: Main query
-            intermediate_context: List of intermediate query-answer pairs
-            retrieved_documents: All retrieved documents
+            query: Original user query
+            intermediate_context: List of intermediate Q&A pairs
+            retrieved_documents: All retrieved document chunks across iterations
             
         Returns:
             Final answer
         """
-        # Format all retrieved documents for reference
-        all_docs_text = ""
-        doc_references = []
-        for i, chunk in enumerate(retrieved_documents, start=1):
+        # Join intermediate contexts
+        intermediate_context_text = "\n\n".join(intermediate_context)
+        
+        # Format document chunks for reference
+        doc_references = ""
+        for i, chunk in enumerate(retrieved_documents[:10], start=1):  # Limit to first 10 chunks for prompt size
             doc_meta = chunk.get("metadata", {})
             doc_name = chunk.get("document_name", "N/A")
-            version = doc_meta.get("version", "unknown")
-            workgroup = doc_meta.get("workgroup", "unknown")
-            subcat = doc_meta.get("subcategory", "unknown")
             page = chunk.get("page_number", "N/A")
+            version = doc_meta.get("version", "unknown")
             
-            doc_references.append(f"Document {i}: {doc_name}, page {page}")
+            doc_references += f"[{i}] {doc_name}, page {page}, version {version}\n"
             
-            all_docs_text += (
-                f"Document {i}:\n"
-                f"Source: {doc_name}, page {page}\n\n"
-                f"{chunk.get('content', 'No content')}\n\n"
-            )
+        prompt = f"""<|system|>
+**Your Role:** You are a Senior Technical Writer for O-RAN Alliance who specializes in producing comprehensive, well-structured answers from collected research. Your job is to transform research notes into a definitive, readable, technically-rich answer to a user query.
 
-        prompt = f"""Given the following intermediate queries and answers, generate a final answer for the main query by combining relevant information. Note that intermediate answers are generated by an LLM and may not always be accurate.
+**Your Goal:** Create a clear, structured, and thorough answer using only the collected research notes, ensuring it fully addresses all aspects of the original query.
 
-## Documents
-{all_docs_text}
-
-## Intermediate queries and answers
-{intermediate_context}
-
-## Main query
+<|user|>
+**Context:**
+<original_query>
 {query}
+</original_query>
 
-Please provide a comprehensive answer following these specific formatting guidelines:
+<collected_information>
+{intermediate_context_text}
+</collected_information>
 
-1. Structure:
-   - Use '##' for main sections and '###' for subsections
-   - Present information in bullet points or numbered lists
-   - Maintain consistent indentation for nested lists
-   - Each section should be logically organized and flow naturally
+<document_references>
+{doc_references}
+</document_references>
 
-2. Content Guidelines:
-   - Focus on delivering a complete answer that fully addresses the query
-   - Be logical and concise while providing detailed information
-   - Present explanations in a step-by-step manner
-   - Write in a professional and informative tone
-   - Target the explanation for engineers new to O-RAN
-   - CONSOLIDATE information from multiple sources into single, comprehensive bullet points
+**Task:**
+Synthesize a comprehensive, authoritative answer to the original query using only the collected information. Your answer should:
 
-3. Reference Formatting (EXTREMELY IMPORTANT):
-   - Add reference numbers in square brackets ONLY at the END of each bullet point: [1], [2], etc.
-   - NEVER put references within sentences or in the middle of bullet points
-   - NEVER use comma-separated references like [1,2,3] - this is incorrect
-   - Place references as separate adjacent brackets at the end: [1][2][3]
-   - References must be placed IMMEDIATELY after the text they support (no space between text and reference)
-   - Aim to use FEWER reference numbers overall - group related information together
-   - Never reference the same document multiple times within a single bullet point
-   - INCORRECT: "The O-RAN architecture [1, 2, 3] includes multiple components."
-   - CORRECT: "The O-RAN architecture includes multiple components.[1][2][3]"
+1. **Structure:** Create a well-organized response, potentially including sections, bullet points, or step-by-step formats when appropriate for clarity. Complex topics deserve well-structured explanations.
 
-4. Reference Mapping Section:
-   - At the very end of your answer, include a "## References" section
-   - List ALL referenced documents with their assigned numbers
-   - Format as:
-     - [1] Document Name, page Page Number
-     - [2] Another Document, page Page Number
-     - etc.
-   - Use actual document names (e.g., "O-RAN.WG4.MP.0-R004-v16.01.pdf") rather than generic "Document X" references
+2. **Depth:** Provide a thorough explanation that covers all aspects of the query, including technical details, parameters, mechanisms, reasons, or contrasts identified in the collected information.
 
-5. Example Format:
-   ## Main Section Title
-   - Solution 1 of the O-RAN RIC API uses JSON for message encoding. This is the data interchange format used for transporting data between the Near-RT RIC and the consumer.[1][2][3]
-   - The complete protocol stack for Solution 1 includes TCP for the transport layer, TLS for secure HTTP connections (optional but supported), and HTTP as the application-level protocol.[4]
+3. **Precision:** Use precise O-RAN terminology and technical language found in the collected information. Maintain technical accuracy while ensuring readability.
 
-   ## References
-   - [1] O-RAN.WG1.OAD-R003-v12.00.pdf, page 15
-   - [2] O-RAN.WG4.MP.0-R004-v16.01.pdf, page 20
-   - [3] O-RAN.WG7.IPC-HRD-Opt8.0-v03.00.pdf, page 96
-   - [4] O-RAN.WG10.OAM-Architecture-R004-v13.00.pdf, page 43
-   - [5] O-RAN.WG4.CONF.0-R004-v11.00.pdf, page 42
-   - [6] O-RAN.WG8.AAD.0-R004-v13.00.pdf, page 156
+4. **References:** Where helpful for credibility, include numbered references to source documents from <document_references> using [1], [2], etc.
 
-IMPORTANT: Keep your writing style fluid and natural by placing references ONLY at the end of complete statements or bullet points. DO NOT interrupt the flow of information with references throughout the text. Consolidate information from multiple sources into comprehensive, well-written bullet points with fewer reference numbers overall. The goal is to provide a clean, readable answer with minimal reference intrusion.
+5. **Completeness:** Ensure all aspects of the original query are addressed completely.
 
-Your answer should be well-structured, detailed, and easy to read. Focus on answering the query accurately and comprehensively, using only the information from the provided documents.
+**Answer Format:**
+- Start with "## " followed by a concise title summarizing the topic
+- Include clear section headings where appropriate for complex topics
+- Use bulleted lists or numbered steps where helpful for clarity
+- Include appropriate technical details: parameters, methodologies, procedures
+
+**Response:**
+<|assistant|>
 """
-        content = Content(role="user", parts=[Part.from_text(prompt)])
-        response = self.llm.generate_content(content, generation_config=self.chain_generation_config)
-        final_answer = response.text.strip() if response and response.text.strip() else ""
+        # Handle different API types
+        if self.using_api_key:
+            # For google.generativeai, we can directly pass the text
+            response = self.llm.generate_content(prompt, generation_config=self.chain_generation_config)
+        else:
+            # For vertexai.generative_models, we need to create a Content object
+            content = Content(role="user", parts=[Part.from_text(prompt)])
+            response = self.llm.generate_content(content, generation_config=self.chain_generation_config)
+            
+        final_answer = response.text.strip() if response and response.text else ""
+        logging.info(f"Generated final answer with Chain of RAG (first 200 chars): {final_answer[:200]}...")
         return final_answer
 
     def process_query(self, query: str, conversation_history: List[Dict] = None) -> Tuple[str, Dict[str, Any]]:
         """
-        Processes the user query using Chain of RAG.
+        Processes a user query using the Chain of RAG approach.
         
         Args:
             query: User query
-            conversation_history: Conversation history (not used for Chain of RAG but kept for API compatibility)
+            conversation_history: Optional conversation history
             
         Returns:
-            Tuple of (final answer, additional info)
+            Tuple containing the final answer and a debug context dictionary
         """
-        intermediate_contexts = []
-        all_retrieved_documents = []
-        debug_info = {
-            "iterations": [],
-            "total_documents": 0,
-            "early_stopped": False
-        }
-        
-        logging.info(f"Processing query with Chain of RAG: {query}")
-        
-        # Initial follow-up query is the same as the main query
-        for iter_idx in range(self.max_iterations):
-            logging.info(f"Chain of RAG iteration {iter_idx + 1}/{self.max_iterations}")
+        if conversation_history is None:
+            conversation_history = []
             
-            # 1. Generate follow-up query
-            intermediate_context_str = "\n".join(intermediate_contexts)
-            follow_up_query = self._generate_follow_up_query(query, intermediate_context_str)
+        try:
+            # Initialize tracking
+            all_retrieved_docs = []
+            intermediate_contexts = []
+            follow_up_queries = []
+            iteration_details = []
             
-            # 2. Retrieve context for the follow-up query
-            retrieved_documents = self._retrieve_context(follow_up_query)
-            all_retrieved_documents.extend(retrieved_documents)
+            # Main Chain of RAG loop
+            for i in range(1, self.max_iterations + 1):
+                logging.info(f"Chain of RAG iteration {i}/{self.max_iterations}")
+                
+                # Step 1: Generate follow-up query
+                follow_up_query = self._generate_follow_up_query(query, intermediate_contexts)
+                follow_up_queries.append(follow_up_query)
+                
+                # Step 2: Retrieve relevant documents
+                retrieved_docs = self._retrieve_context(follow_up_query)
+                all_retrieved_docs.extend(retrieved_docs)
+                
+                # Step 3: Generate intermediate answer
+                intermediate_answer = self._generate_intermediate_answer(follow_up_query, retrieved_docs)
+                
+                # Format the context entry
+                context_entry = f"Follow-up Query: {follow_up_query}\n\nIntermediate Answer: {intermediate_answer}"
+                intermediate_contexts.append(context_entry)
+                
+                # Track iteration details for debugging
+                iteration_details.append({
+                    "iteration": i,
+                    "follow_up_query": follow_up_query,
+                    "num_docs_retrieved": len(retrieved_docs),
+                    "intermediate_answer": intermediate_answer[:500] + ("..." if len(intermediate_answer) > 500 else "")
+                })
+                
+                # Step 4: Check if we have enough information
+                if self.early_stopping and i >= 2:  # Need at least 2 iterations
+                    if self._check_has_enough_info(query, intermediate_contexts):
+                        logging.info(f"Early stopping after iteration {i}: Have enough information")
+                        break
             
-            # 3. Generate intermediate answer
-            intermediate_answer = self._generate_intermediate_answer(follow_up_query, retrieved_documents)
+            # Step 5: Generate final answer
+            final_answer = self._generate_final_answer(query, intermediate_contexts, all_retrieved_docs)
             
-            # 4. Format and add to intermediate context
-            context_entry = f"Intermediate query{len(intermediate_contexts) + 1}: {follow_up_query}\nIntermediate answer{len(intermediate_contexts) + 1}: {intermediate_answer}"
-            intermediate_contexts.append(context_entry)
+            # Prepare debug context
+            debug_context = {
+                "original_query": query,
+                "iterations": iteration_details,
+                "num_iterations": len(iteration_details),
+                "early_stopped": len(iteration_details) < self.max_iterations and self.early_stopping,
+                "total_docs_retrieved": len(all_retrieved_docs)
+            }
             
-            # Store iteration debug info
-            debug_info["iterations"].append({
-                "query": follow_up_query,
-                "num_documents": len(retrieved_documents),
-                "answer_preview": intermediate_answer[:100] + "..." if len(intermediate_answer) > 100 else intermediate_answer
-            })
+            return final_answer, debug_context
             
-            # 5. Check if we have enough information (early stopping)
-            if self.early_stopping and iter_idx < self.max_iterations - 1:  # Don't check on the last iteration
-                if self._check_has_enough_info(query, intermediate_context_str):
-                    logging.info(f"Early stopping after iteration {iter_idx + 1}: Have enough information")
-                    debug_info["early_stopped"] = True
-                    break
-        
-        # Deduplicate retrieved documents based on document_name and page_number
-        unique_docs = {}
-        for doc in all_retrieved_documents:
-            key = f"{doc.get('document_name', 'unknown')}_{doc.get('page_number', 'unknown')}"
-            if key not in unique_docs:
-                unique_docs[key] = doc
-        
-        deduplicated_docs = list(unique_docs.values())
-        debug_info["total_documents"] = len(deduplicated_docs)
-        
-        # Generate final answer
-        final_answer = self._generate_final_answer(
-            query=query,
-            intermediate_context=intermediate_contexts,
-            retrieved_documents=deduplicated_docs
-        )
-        
-        logging.info(f"Generated final answer with Chain of RAG (first 200 chars): {final_answer[:200]}...")
-        
-        return final_answer, debug_info 
+        except Exception as e:
+            # Log the error
+            logging.error(f"Error in Chain of RAG processing: {e}", exc_info=True)
+            
+            # Check if this is a Content object related error that might be happening with google.generativeai
+            if 'Content' in str(e) and self.using_api_key:
+                error_message = (
+                    "## Error Processing Query\n\n"
+                    "An error occurred while processing your query with the Chain of RAG pipeline. "
+                    "There seems to be an issue with the API integration. Please try using the standard RAG pipeline instead.\n\n"
+                    f"Error details: {str(e)}"
+                )
+            else:
+                # Generic error message
+                error_message = (
+                    "## Error Processing Query\n\n"
+                    "An error occurred while processing your query with the Chain of RAG pipeline. "
+                    "Please try rephrasing your question or try again later.\n\n"
+                    f"Error details: {str(e)}"
+                )
+            
+            return error_message, {"error": str(e)} 

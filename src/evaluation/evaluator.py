@@ -24,7 +24,49 @@ from vertexai.generative_models import (
 from src.vector_search.searcher import VectorSearcher
 from src.vector_search.reranker import Reranker
 from src.chatbot.rat_processor import RATProcessor
+from src.chatbot.chain_of_rag import ChainOfRagProcessor
 from src.evaluation.rat_processor_eval import RATProcessorEval
+
+# Add imports for reading .env file
+try:
+    from dotenv import load_dotenv
+    # Get the absolute path to the project root
+    project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+    dotenv_path = os.path.join(project_root, '.env')
+    
+    # Check if .env file exists
+    if os.path.exists(dotenv_path):
+        load_dotenv(dotenv_path)
+        logging.info(f"Loaded .env file from {dotenv_path}")
+    else:
+        logging.warning(f".env file not found at {dotenv_path}")
+except ImportError:
+    logging.warning("python-dotenv not installed. Reading .env file manually.")
+    try:
+        # Define possible locations for the .env file
+        project_root = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+        possible_paths = [
+            '.env',  # Current directory
+            os.path.join(project_root, '.env'),  # Project root
+        ]
+        
+        # Try each path
+        for env_path in possible_paths:
+            if os.path.exists(env_path):
+                logging.info(f"Found .env file at {env_path}")
+                with open(env_path, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            key, value = line.split('=', 1)
+                            os.environ[key] = value
+                            logging.info(f"Manually set {key} from .env file")
+                break  # Exit loop if a file was found and processed
+        else:
+            logging.warning("No .env file found in expected locations")
+    except Exception as e:
+        logging.error(f"Error manually reading .env file: {e}")
+        logging.warning("Falling back to environment variables")
 
 
 class Evaluator:
@@ -35,6 +77,7 @@ class Evaluator:
         bucket_name: str,
         embeddings_path: str,
         qna_dataset_path: str,
+        qna_dataset_local_path: str,
         index_endpoint_display_name: str,
         deployed_index_id: str,
         generation_config: Dict,
@@ -51,7 +94,8 @@ class Evaluator:
             location (str): Google Cloud region.
             bucket_name (str): GCS bucket name.
             embeddings_path (str): Path within the bucket where embeddings are stored.
-            qna_dataset_path (str): Path to the Q&A dataset in GCS.
+            qna_dataset_path (str): Path to the Q&A dataset in GCS (deprecated, kept for compatibility).
+            qna_dataset_local_path (str): Local path to the Q&A dataset file.
             generation_config (Dict): Configuration for text generation parameters.
             vector_searcher (VectorSearcher): Instance of VectorSearcher for performing vector searches.
             credentials: Google Cloud credentials object.
@@ -62,9 +106,27 @@ class Evaluator:
         self.location = location
         self.bucket_name = bucket_name
         self.embeddings_path = embeddings_path
-        self.qna_dataset_path = qna_dataset_path
+        self.qna_dataset_path = qna_dataset_path  # Kept for backward compatibility
+        self.qna_dataset_local_path = qna_dataset_local_path
         self.vector_searcher = vector_searcher  
-        self.generative_model = GenerativeModel("gemini-1.5-flash-002")
+        
+        # Get Gemini API key from environment variables (loaded from .env file)
+        api_key = os.environ.get('GEMINI_API_KEY')
+        if api_key:
+            # Import the direct API client
+            import google.generativeai as genai
+            
+            # Configure with API key
+            genai.configure(api_key=api_key)
+            
+            # Use the GenerativeModel from google.generativeai
+            self.generative_model = genai.GenerativeModel("gemini-1.5-flash-002")
+            logging.info("Initialized GenerativeModel using API key from .env file")
+        else:
+            # Fall back to VertexAI authentication
+            self.generative_model = GenerativeModel("gemini-1.5-flash-002")
+            logging.warning("GEMINI_API_KEY not found in environment variables. Falling back to Google Cloud authentication.")
+        
         self.generation_config = GenerationConfig(
             temperature=generation_config.get('temperature', 0.3),
             top_p=generation_config.get('top_p', 0.9),
@@ -95,9 +157,125 @@ class Evaluator:
             logging.error(f"Failed to upload Q&A dataset to GCS: {e}", exc_info=True)
             raise
 
+    def load_qna_dataset(self) -> List[List[str]]:
+        """
+        Loads the Q&A dataset from a local file.
+
+        Returns:
+            List[List[str]]: List of Q&A entries as [question, choices, correct_answer].
+        """
+        try:
+            # Check if local path exists
+            if not os.path.exists(self.qna_dataset_local_path):
+                logging.warning(f"Local Q&A dataset file not found at {self.qna_dataset_local_path}. Trying to fall back to GCS.")
+                return self.load_qna_dataset_from_gcs()
+            
+            qna_dataset = []
+            valid_entries = 0
+            error_entries = 0
+            
+            # First try to load the entire file as a JSON array
+            try:
+                with open(self.qna_dataset_local_path, 'r') as file:
+                    content = file.read().strip()
+                    if content.startswith('[') and content.endswith(']'):
+                        # Try parsing as a JSON array
+                        entries = json.loads(content)
+                        if isinstance(entries, list):
+                            for entry in entries:
+                                if isinstance(entry, dict):
+                                    question = entry.get("question")
+                                    # Handle both "choices" and "options" keys
+                                    choices = entry.get("choices") or entry.get("options")
+                                    answer = entry.get("answer")
+                                    
+                                    if question and isinstance(choices, list) and answer:
+                                        qna_dataset.append([question, choices, answer])
+                                        valid_entries += 1
+                                    else:
+                                        error_entries += 1
+                            
+                            if valid_entries > 0:
+                                logging.info(f"Loaded {valid_entries} valid Q&A entries from JSON array. Skipped {error_entries} invalid entries.")
+                                return qna_dataset
+            except json.JSONDecodeError:
+                # Not a valid JSON array, try parsing line by line
+                pass
+            
+            # If we reach here, try parsing line by line (JSON Lines format)
+            valid_entries = 0
+            error_entries = 0
+            
+            with open(self.qna_dataset_local_path, 'r') as file:
+                for line_number, line in enumerate(file, 1):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    try:
+                        # Try to parse the line as JSON
+                        qna_entry = json.loads(line)
+                        
+                        # Handle different possible formats
+                        
+                        # Format 1: [question, choices, answer] array directly
+                        if isinstance(qna_entry, list) and len(qna_entry) == 3:
+                            question = qna_entry[0]
+                            choices = qna_entry[1]
+                            answer = qna_entry[2]
+                            
+                            if isinstance(question, str) and isinstance(choices, list) and isinstance(answer, str):
+                                qna_dataset.append([question, choices, answer])
+                                valid_entries += 1
+                            else:
+                                logging.warning(f"Line {line_number}: Invalid array format - expected [string, list, string].")
+                                error_entries += 1
+                        
+                        # Format 2: {"question": "...", "choices": [...], "answer": "..."}
+                        # or {"question": "...", "options": [...], "answer": "..."}
+                        elif isinstance(qna_entry, dict):
+                            question = qna_entry.get("question")
+                            # Handle both "choices" and "options" keys
+                            choices = qna_entry.get("choices") or qna_entry.get("options")
+                            answer = qna_entry.get("answer")
+                            
+                            if question and isinstance(choices, list) and answer:
+                                qna_dataset.append([question, choices, answer])
+                                valid_entries += 1
+                            else:
+                                logging.warning(
+                                    f"Line {line_number}: Invalid dictionary format - "
+                                    f"missing required fields or invalid types."
+                                )
+                                error_entries += 1
+                        else:
+                            logging.warning(f"Line {line_number}: Unexpected format - {type(qna_entry)}.")
+                            error_entries += 1
+                            
+                    except json.JSONDecodeError as e:
+                        logging.error(f"Line {line_number}: JSONDecodeError - {e}")
+                        error_entries += 1
+            
+            if valid_entries == 0 and error_entries > 0:
+                logging.error(
+                    f"No valid entries found in the dataset file. "
+                    f"Found {error_entries} invalid entries."
+                )
+                return []
+                
+            logging.info(
+                f"Loaded {valid_entries} valid Q&A entries from local file. "
+                f"Skipped {error_entries} invalid entries."
+            )
+            return qna_dataset
+        except Exception as e:
+            logging.error(f"Failed to load Q&A dataset from local file: {e}", exc_info=True)
+            logging.warning("Trying to fall back to GCS.")
+            return self.load_qna_dataset_from_gcs()
+
     def load_qna_dataset_from_gcs(self) -> List[List[str]]:
         """
-        Loads the Q&A dataset from GCS.
+        Loads the Q&A dataset from GCS (Legacy method, kept for backward compatibility).
 
         Returns:
             List[List[str]]: List of Q&A entries as [question, choices, correct_answer].
@@ -161,23 +339,44 @@ class Evaluator:
 
         Concept:
         """
-        user_prompt = Content(
-            role="user",
-            parts=[Part.from_text(prompt)]
-        )
-
-        # OVERRIDE: Use lower randomness for concept extraction
-        concept_generation_config = GenerationConfig(
-        temperature=0.0,   # or 0.1
-        top_p=1.0,         # no nucleus sampling
-        max_output_tokens=128 
-        )
-
+        
         try:
-            response = self.generative_model.generate_content(
-                user_prompt,
-                generation_config=concept_generation_config,
-            )
+            # Check if we're using the API key integration (google.generativeai package)
+            if 'google.generativeai' in str(type(self.generative_model)):
+                # For google.generativeai, we can directly pass the text
+                # OVERRIDE: Use lower randomness for concept extraction
+                import google.generativeai as genai
+                
+                # Create a generation config with lower randomness
+                concept_generation_params = {
+                    "temperature": 0.0,
+                    "top_p": 1.0,
+                    "max_output_tokens": 128
+                }
+                
+                response = self.generative_model.generate_content(
+                    prompt,
+                    generation_config=genai.GenerationConfig(**concept_generation_params)
+                )
+            else:
+                # For vertexai.generative_models, we need to create a Content object
+                user_prompt = Content(
+                    role="user",
+                    parts=[Part.from_text(prompt)]
+                )
+
+                # OVERRIDE: Use lower randomness for concept extraction
+                concept_generation_config = GenerationConfig(
+                    temperature=0.0,   # or 0.1
+                    top_p=1.0,         # no nucleus sampling
+                    max_output_tokens=128 
+                )
+                
+                response = self.generative_model.generate_content(
+                    user_prompt,
+                    generation_config=concept_generation_config,
+                )
+                
             raw_text = response.text.strip()
             # Basic fallback if empty
             if not raw_text:
@@ -207,10 +406,27 @@ class Evaluator:
         wait_time = 1
         for attempt in range(1, retries + 1):
             try:
-                response = self.generative_model.generate_content(
-                    content,
-                    generation_config=self.generation_config,
-                )
+                # Check if we're using the API key integration (google.generativeai package)
+                if 'google.generativeai' in str(type(self.generative_model)):
+                    # For google.generativeai.generative_models.GenerativeModel
+                    if isinstance(content, Content):
+                        # Extract the text from the Content object
+                        prompt_text = ""
+                        for part in content.parts:
+                            if hasattr(part, 'text'):
+                                prompt_text += part.text
+                        
+                        response = self.generative_model.generate_content(prompt_text)
+                    else:
+                        # If it's already a string
+                        response = self.generative_model.generate_content(content)
+                else:
+                    # For vertexai.generative_models.GenerativeModel
+                    response = self.generative_model.generate_content(
+                        content,
+                        generation_config=self.generation_config,
+                    )
+                
                 response_text = response.text.strip()
                 # If response is empty or equals "error", consider it a failure.
                 if not response_text or response_text.lower() == "error":
@@ -496,11 +712,18 @@ class Evaluator:
 
         Please provide the correct answer choice number (1, 2, 3, or 4) only.
         """
-        user_prompt = Content(
-            role="user",
-            parts=[Part.from_text(prompt_text)]
-        )
-        return self.safe_generate_content(user_prompt)
+        
+        # Check if we're using the API key integration (google.generativeai package)
+        if 'google.generativeai' in str(type(self.generative_model)):
+            # For google.generativeai, we can directly pass the text
+            return self.safe_generate_content(prompt_text)
+        else:
+            # For vertexai.generative_models, we need to create a Content object
+            user_prompt = Content(
+                role="user",
+                parts=[Part.from_text(prompt_text)]
+            )
+            return self.safe_generate_content(user_prompt)
 
     # ------------------------------------------------------------------
     # (6) Evaluate Models in Parallel with Progress Bar and Save Results

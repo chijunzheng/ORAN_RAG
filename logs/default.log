@@ -1,0 +1,1427 @@
+2025-03-30 11:11:17 - INFO - root - Starting O-RAN RAG Evaluation Script
+2025-03-30 11:11:17 - INFO - root - Selected RAG pipeline: default
+2025-03-30 11:11:17 - INFO - root - Successfully authenticated with Google Cloud using Service Account credentials.
+2025-03-30 11:11:17 - INFO - root - Authentication successful.
+2025-03-30 11:11:17 - INFO - root - Initialized VectorSearcher with project_id='oran-rag', location='us-central1', bucket_uri='gs://oran-rag-bucket/embeddings/'
+2025-03-30 11:11:17 - INFO - root - Initialized TextEmbeddingModel from 'text-embedding-005'
+2025-03-30 11:11:18 - INFO - root - Downloaded chunks file from GCS: embeddings/chunks.json
+2025-03-30 11:11:19 - INFO - root - Loaded 9592 chunks into memory.
+2025-03-30 11:11:19 - INFO - root - Chunks loaded into memory during VectorSearcher initialization.
+2025-03-30 11:11:19 - INFO - root - Initialized Reranker with ranking_config='projects/oran-rag/locations/us-central1/rankingConfigs/default_ranking_config'
+2025-03-30 11:11:19 - INFO - root - Initialized GenerativeModel using API key from .env file
+2025-03-30 11:11:19 - INFO - root - Evaluator initialized successfully.
+2025-03-30 11:11:19 - INFO - root - Loaded 200 valid Q&A entries from local file. Skipped 0 invalid entries.
+2025-03-30 11:11:19 - INFO - root - Loaded 200 Q&A entries.
+2025-03-30 11:11:19 - INFO - root - Starting evaluation with Default RAG pipeline on 200 questions
+2025-03-30 11:11:19 - INFO - root - Results will be saved to /Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/evaluation_results/contextual_chunking/default_pipeline/evaluation_results_default_200_20250330_111117.xlsx
+2025-03-30 11:11:19 - INFO - root - Excel file created at /Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/evaluation_results/contextual_chunking/default_pipeline/evaluation_results_default_200_20250330_111117.xlsx
+Evaluating Q&A Entries:   0%|          | 0/200 [00:00<?, ?it/s]2025-03-30 11:11:20 - INFO - root - Performing vector search for query: 'What is a key function of the O-RAN Fronthaul CUS Plane specification that can be included in the beamforming weights?' with 40 neighbors.
+2025-03-30 11:11:21 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:21 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:21 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:22 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:22 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:22 - INFO - root - Reranking completed successfully for query: 'Channel State Information (CSI) feedback'
+Evaluating Q&A Entries:   0%|          | 1/200 [00:03<12:31,  3.77s/it]2025-03-30 11:11:24 - INFO - root - Performing vector search for query: 'What is the O-RAN addition for the "DRB.RlcSduDelayDl" measurement?' with 40 neighbors.
+2025-03-30 11:11:25 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:25 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:25 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:25 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:25 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:25 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC's ability to define and collect new KPIs.'
+Evaluating Q&A Entries:   1%|          | 2/200 [00:07<11:41,  3.55s/it]2025-03-30 11:11:27 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.ULHARQ.DistPuschMcsMuMimoInitialTx" measurement?' with 40 neighbors.
+2025-03-30 11:11:28 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:28 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:28 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:29 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:29 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:29 - INFO - root - Reranking completed successfully for query: 'Initial Uplink HARQ performance measurement for multi-user MIMO.'
+Evaluating Q&A Entries:   2%|▏         | 3/200 [00:10<11:42,  3.57s/it]2025-03-30 11:11:31 - INFO - root - Performing vector search for query: 'Which of the following is the correct Measurement Type for a PUSCH with Rank 1, MCS index 15, and MCS table 3?' with 40 neighbors.
+2025-03-30 11:11:31 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:31 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:32 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:32 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:32 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:32 - INFO - root - Reranking completed successfully for query: 'O-RAN MCS Table Mapping'
+Evaluating Q&A Entries:   2%|▏         | 4/200 [00:13<11:09,  3.42s/it]2025-03-30 11:11:34 - INFO - root - Performing vector search for query: 'In the context of measuring PUCCH SINR, what is the value that is multiplied by 102 and then rounded to two decimal places?' with 40 neighbors.
+2025-03-30 11:11:35 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:35 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:35 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:35 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:35 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:36 - INFO - root - Reranking completed successfully for query: 'PUCCH SINR quantization.'
+Evaluating Q&A Entries:   2%|▎         | 5/200 [00:17<10:59,  3.38s/it]2025-03-30 11:11:37 - INFO - root - Performing vector search for query: 'In the context of O-RAN, what is the measurement type for tracking the transmission power of PDCCH, considering both the SSB index and DCI format?' with 40 neighbors.
+2025-03-30 11:11:38 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:38 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:38 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:39 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:39 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:39 - INFO - root - Reranking completed successfully for query: 'O-RAN performance measurement reporting.'
+Evaluating Q&A Entries:   3%|▎         | 6/200 [00:20<11:01,  3.41s/it]2025-03-30 11:11:41 - INFO - root - Performing vector search for query: 'What is the default protocol stack for A1-related APIs in the current version of the O-RAN specification?' with 40 neighbors.
+2025-03-30 11:11:41 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:41 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:42 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:42 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:42 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:42 - INFO - root - Reranking completed successfully for query: 'O-RAN A1 Interface Specifications'
+Evaluating Q&A Entries:   4%|▎         | 7/200 [00:24<10:56,  3.40s/it]2025-03-30 11:11:44 - INFO - root - Performing vector search for query: 'What is the outcome of the E2 SUBSCRIPTION DELETE request in the given scenario?' with 40 neighbors.
+2025-03-30 11:11:45 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:45 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:45 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:46 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:46 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:46 - INFO - root - Reranking completed successfully for query: 'E2 interface state management'
+Evaluating Q&A Entries:   4%|▍         | 8/200 [00:27<10:57,  3.43s/it]2025-03-30 11:11:48 - INFO - root - Performing vector search for query: 'What happens if the Near-RT RIC platform rejects an E2 Subscription Delete request?' with 40 neighbors.
+2025-03-30 11:11:48 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:48 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:48 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:49 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:49 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:49 - INFO - root - Reranking completed successfully for query: 'E2 Subscription Management Failure Handling'
+Evaluating Q&A Entries:   4%|▍         | 9/200 [00:30<10:18,  3.24s/it]2025-03-30 11:11:50 - INFO - root - Performing vector search for query: 'What protocol is used for message encoding in the Solution 1 for O-RAN's RIC API communication?' with 40 neighbors.
+2025-03-30 11:11:51 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:51 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:51 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:52 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:52 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:52 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC API message encoding protocol.'
+Evaluating Q&A Entries:   5%|▌         | 10/200 [00:33<10:07,  3.20s/it]2025-03-30 11:11:54 - INFO - root - Performing vector search for query: 'Which of the following messages is NOT included in the E2IndicationProc message?' with 40 neighbors.
+2025-03-30 11:11:54 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:54 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:54 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:55 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:55 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:55 - INFO - root - Reranking completed successfully for query: 'E2 interface message specifications.'
+Evaluating Q&A Entries:   6%|▌         | 11/200 [00:36<10:02,  3.19s/it]2025-03-30 11:11:57 - INFO - root - Performing vector search for query: 'What happens when the first two-digit value of an O-RAN specification is incremented?' with 40 neighbors.
+2025-03-30 11:11:57 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:11:57 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:11:58 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:11:58 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:11:58 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:11:58 - INFO - root - Reranking completed successfully for query: 'O-RAN specification versioning.'
+Evaluating Q&A Entries:   6%|▌         | 12/200 [00:40<10:11,  3.25s/it]2025-03-30 11:12:00 - INFO - root - Performing vector search for query: 'What are the required properties for a QoE Target policy scope when defining a policy for a specific UE, slice, and QoS?' with 40 neighbors.
+2025-03-30 11:12:01 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:01 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:01 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:01 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:01 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:02 - INFO - root - Reranking completed successfully for query: 'Policy Scope Granularity'
+Evaluating Q&A Entries:   6%|▋         | 13/200 [00:43<09:53,  3.17s/it]2025-03-30 11:12:03 - INFO - root - Performing vector search for query: 'What is the maximum value for the "NcI" field in the O-RAN specification?' with 40 neighbors.
+2025-03-30 11:12:04 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:04 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:04 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:05 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:05 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:05 - INFO - root - Reranking completed successfully for query: 'O-RAN  NcI field size limits.'
+Evaluating Q&A Entries:   7%|▋         | 14/200 [00:46<09:56,  3.21s/it]2025-03-30 11:12:06 - INFO - root - Performing vector search for query: 'What is the maximum value allowed for the "NcI" field in an O-RAN specification?' with 40 neighbors.
+2025-03-30 11:12:07 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:07 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:07 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:08 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:08 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:08 - INFO - root - Reranking completed successfully for query: 'O-RAN specification limits.'
+Evaluating Q&A Entries:   8%|▊         | 15/200 [00:49<09:50,  3.19s/it]2025-03-30 11:12:10 - INFO - root - Performing vector search for query: 'Which of the following is a valid combination of scope identifiers for the "ueLevelObjectives" policy statement in the O-RAN UE Level Target policy?' with 40 neighbors.
+2025-03-30 11:12:10 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:10 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:10 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:11 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:11 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:11 - INFO - root - Reranking completed successfully for query: 'O-RAN Policy Scope Identifier Combinations'
+Evaluating Q&A Entries:   8%|▊         | 16/200 [00:52<09:47,  3.19s/it]2025-03-30 11:12:13 - INFO - root - Performing vector search for query: 'Which of the following is NOT a potential field within the "UeId" object definition in the provided context?' with 40 neighbors.
+2025-03-30 11:12:13 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:13 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:14 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:14 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:14 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:14 - INFO - root - Reranking completed successfully for query: 'O-RAN UE ID structure and its defined fields.'
+Evaluating Q&A Entries:   8%|▊         | 17/200 [00:55<09:40,  3.17s/it]2025-03-30 11:12:16 - INFO - root - Performing vector search for query: 'Which statement is allowed to be used with the "sliceId" identifier in the ScopeIdentifier field, according to the O-RAN WG2 Use Case Requirements?' with 40 neighbors.
+2025-03-30 11:12:16 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:16 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:17 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:17 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:17 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:17 - INFO - root - Reranking completed successfully for query: 'O-RAN WG2 Slice Identifier Scope Definition'
+Evaluating Q&A Entries:   9%|▉         | 18/200 [00:59<09:38,  3.18s/it]2025-03-30 11:12:19 - INFO - root - Performing vector search for query: 'Which of the following prbUsgType values are applicable when only cellId is used in the ScopeIdentifier?' with 40 neighbors.
+2025-03-30 11:12:20 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:20 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:20 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:21 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:21 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:21 - INFO - root - Reranking completed successfully for query: 'O-RAN Scope Identifier and PRB Usage Type relationship.'
+Evaluating Q&A Entries:  10%|▉         | 19/200 [01:02<09:42,  3.22s/it]2025-03-30 11:12:22 - INFO - root - Performing vector search for query: 'What is the maximum value for the "NcI" field in the O-RAN specification?' with 40 neighbors.
+2025-03-30 11:12:23 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:23 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:23 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:24 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:24 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:24 - INFO - root - Reranking completed successfully for query: 'O-RAN  NcI field size limits.'
+Evaluating Q&A Entries:  10%|█         | 20/200 [01:05<09:19,  3.11s/it]2025-03-30 11:12:25 - INFO - root - Performing vector search for query: 'Which of the following is a feature introduced in the O-RAN specifications in July 2022?' with 40 neighbors.
+2025-03-30 11:12:26 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:26 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:26 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:27 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:27 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:31 - INFO - root - Reranking completed successfully for query: 'O-RAN Release Timeline'
+Evaluating Q&A Entries:  10%|█         | 21/200 [01:12<13:20,  4.47s/it]2025-03-30 11:12:33 - INFO - root - Performing vector search for query: 'Which of the following is NOT a supported RAN Configuration Structure for REPORT Service Style 1?' with 40 neighbors.
+2025-03-30 11:12:33 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:33 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:34 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:34 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:34 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:34 - INFO - root - Reranking completed successfully for query: 'O-RAN Service Model and its defined configurations for REPORT Service Style 1.'
+Evaluating Q&A Entries:  11%|█         | 22/200 [01:15<12:04,  4.07s/it]2025-03-30 11:12:36 - INFO - root - Performing vector search for query: 'What format is used for the REPORT Service style's RIC Indication Message IE?' with 40 neighbors.
+2025-03-30 11:12:37 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:37 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:37 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:37 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:37 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:37 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC Indication Message IE encoding.'
+Evaluating Q&A Entries:  12%|█▏        | 23/200 [01:19<11:15,  3.82s/it]2025-03-30 11:12:39 - INFO - root - Performing vector search for query: 'Which of the following mechanisms does CONTROL Service Style 1 use to modify RAN configuration?' with 40 neighbors.
+2025-03-30 11:12:40 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:40 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:40 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:41 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:41 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:41 - INFO - root - Reranking completed successfully for query: 'O-RAN Control Service Style 1 configuration mechanisms.'
+Evaluating Q&A Entries:  12%|█▏        | 24/200 [01:22<10:34,  3.60s/it]2025-03-30 11:12:42 - INFO - root - Performing vector search for query: 'Which E2SM IE Format is used for the CONTROL style RIC Control Outcome IE?' with 40 neighbors.
+2025-03-30 11:12:43 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:43 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:43 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:44 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:44 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:44 - INFO - root - Reranking completed successfully for query: 'E2SM IE (Information Element) specifications.'
+Evaluating Q&A Entries:  12%|█▎        | 25/200 [01:25<10:22,  3.56s/it]2025-03-30 11:12:46 - INFO - root - Performing vector search for query: 'An O-RAN RIC Action Definition IE specifies a Cell Global ID, a Report Type of 'All', and no List of Attributes. If a configuration change occurs to the O-RRMPolicyRatio_PRB_1 instance, what action should the E2 node take?' with 40 neighbors.
+2025-03-30 11:12:46 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:46 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:47 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:47 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:47 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:47 - INFO - root - Reranking completed successfully for query: 'E2 interface action triggering based on RIC action definition.'
+Evaluating Q&A Entries:  13%|█▎        | 26/200 [01:28<09:53,  3.41s/it]2025-03-30 11:12:49 - INFO - root - Performing vector search for query: 'In an O-RAN scenario where two instances of the O-RRMPolicyRatio RAN configuration structure are used for managing PRB resource allocation of different slices in the same cell, what happens when the RIC event trigger is caused by a modification in one instance of the structure?' with 40 neighbors.
+2025-03-30 11:12:49 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:49 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:50 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:50 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:50 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:50 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC's handling of independent configuration instances.'
+Evaluating Q&A Entries:  14%|█▎        | 27/200 [01:32<09:40,  3.35s/it]2025-03-30 11:12:52 - INFO - root - Performing vector search for query: 'Which of the following is a required field within the "E2SM-CCC-ControlHeaderFormat1" schema?' with 40 neighbors.
+2025-03-30 11:12:53 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:53 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:53 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:53 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:53 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:54 - INFO - root - Reranking completed successfully for query: 'O-RAN E2SM schema definition.'
+Evaluating Q&A Entries:  14%|█▍        | 28/200 [01:35<09:21,  3.27s/it]2025-03-30 11:12:55 - INFO - root - Performing vector search for query: 'Which of the following is a required field in the "E2SM-CCC-EventTriggerDefinition-Format3" schema?' with 40 neighbors.
+2025-03-30 11:12:56 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:56 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:56 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:12:56 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:12:56 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:12:57 - INFO - root - Reranking completed successfully for query: 'O-RAN E2SM schema definition.'
+Evaluating Q&A Entries:  14%|█▍        | 29/200 [01:38<09:11,  3.23s/it]2025-03-30 11:12:58 - INFO - root - Performing vector search for query: 'What standard does the O-RAN TS R1GAP Notify service availability changes procedure rely on?' with 40 neighbors.
+2025-03-30 11:12:59 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:12:59 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:12:59 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:00 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:00 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:00 - INFO - root - Reranking completed successfully for query: 'O-RAN specifications and standardization.'
+Evaluating Q&A Entries:  15%|█▌        | 30/200 [01:41<09:11,  3.24s/it]2025-03-30 11:13:02 - INFO - root - Performing vector search for query: 'What is the value of the `<apiVersion>` URI path segment for the data discovery API in O-RAN TS R1GAP?' with 40 neighbors.
+2025-03-30 11:13:02 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:02 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:02 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:03 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:03 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:03 - INFO - root - Reranking completed successfully for query: 'O-RAN R1 GAP Data Discovery API specification.'
+Evaluating Q&A Entries:  16%|█▌        | 31/200 [01:44<08:51,  3.15s/it]2025-03-30 11:13:05 - INFO - root - Performing vector search for query: 'What is the API version of the Service discovery API as specified in clause 6.2.2?' with 40 neighbors.
+2025-03-30 11:13:05 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:05 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:05 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:06 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:06 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:06 - INFO - root - Reranking completed successfully for query: 'O-RAN API versioning'
+Evaluating Q&A Entries:  16%|█▌        | 32/200 [01:47<08:59,  3.21s/it]2025-03-30 11:13:08 - INFO - root - Performing vector search for query: 'Which API endpoint is used to register DME type production capabilities in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:13:09 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:09 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:09 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:09 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:09 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:09 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC API interaction.'
+Evaluating Q&A Entries:  16%|█▋        | 33/200 [01:51<09:02,  3.25s/it]2025-03-30 11:13:11 - INFO - root - Performing vector search for query: 'In an Open Radio Access Network (O-RAN) configuration, what is the maximum allowable time error (TE) budget for a scenario where the O-DU acts as the timing source and is directly connected to the O-RU?' with 40 neighbors.
+2025-03-30 11:13:12 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:12 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:12 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:13 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:13 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:13 - INFO - root - Reranking completed successfully for query: 'Synchronization accuracy requirements in O-RAN.'
+Evaluating Q&A Entries:  17%|█▋        | 34/200 [01:54<08:55,  3.22s/it]2025-03-30 11:13:14 - INFO - root - Performing vector search for query: 'In the context of O-RAN, what is the maximum allowed time difference between a T-BC/T-TC* and its nearest common T-BC when the O-DU is not the nearest common T-BC?' with 40 neighbors.
+2025-03-30 11:13:15 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:15 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:15 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:16 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:16 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:16 - INFO - root - Reranking completed successfully for query: 'Synchronization accuracy/Timing precision'
+Evaluating Q&A Entries:  18%|█▊        | 35/200 [01:57<08:50,  3.21s/it]2025-03-30 11:13:18 - INFO - root - Performing vector search for query: 'In an O-RAN network with a T-GM in the mid/backhaul, what is the maximum time error budget allocated for an O-RU (enhanced) in FR1?' with 40 neighbors.
+2025-03-30 11:13:18 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:18 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:18 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:19 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:19 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:19 - INFO - root - Reranking completed successfully for query: 'Synchronization accuracy requirements'
+Evaluating Q&A Entries:  18%|█▊        | 36/200 [02:00<08:40,  3.17s/it]2025-03-30 11:13:21 - INFO - root - Performing vector search for query: 'What is the benefit of the timing solution described in the context for non-O-RAN compliant use cases?' with 40 neighbors.
+2025-03-30 11:13:21 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:21 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:22 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:22 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:22 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:22 - INFO - root - Reranking completed successfully for query: 'Synchronization precision'
+Evaluating Q&A Entries:  18%|█▊        | 37/200 [02:03<08:33,  3.15s/it]2025-03-30 11:13:24 - INFO - root - Performing vector search for query: 'In an O-RAN LLS-C4 configuration with frequency backup from T-GM, what happens if the link from the O-DU to the HSR-F fails?' with 40 neighbors.
+2025-03-30 11:13:24 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:24 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:25 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:25 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:25 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:25 - INFO - root - Reranking completed successfully for query: 'O-RAN's failure handling and redundancy mechanisms.'
+Evaluating Q&A Entries:  19%|█▉        | 38/200 [02:06<08:34,  3.18s/it]2025-03-30 11:13:27 - INFO - root - Performing vector search for query: 'What is the maximum tolerable noise accumulation for a single node in Class A microwave T-TB with 6 nodes?' with 40 neighbors.
+2025-03-30 11:13:27 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:27 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:28 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:28 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:28 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:28 - INFO - root - Reranking completed successfully for query: 'Link Budget'
+Evaluating Q&A Entries:  20%|█▉        | 39/200 [02:09<08:26,  3.15s/it]2025-03-30 11:13:30 - INFO - root - Performing vector search for query: 'In a hardware platform supporting multiple expedited forwarding queues, what is the recommended approach for prioritizing CPRI and eCPRI traffic?' with 40 neighbors.
+2025-03-30 11:13:31 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:31 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:31 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:31 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:31 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:31 - INFO - root - Reranking completed successfully for query: 'Quality of Service (QoS)'
+Evaluating Q&A Entries:  20%|██        | 40/200 [02:13<08:23,  3.15s/it]2025-03-30 11:13:33 - INFO - root - Performing vector search for query: 'Which framework is responsible for providing rApps with access to all necessary functionality, including those originating from both the Non-RT RIC Framework and the SMO Framework?' with 40 neighbors.
+2025-03-30 11:13:34 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:34 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:34 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:34 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:34 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:35 - INFO - root - Reranking completed successfully for query: 'xApps/rApps Integration Framework'
+Evaluating Q&A Entries:  20%|██        | 41/200 [02:16<08:11,  3.09s/it]2025-03-30 11:13:36 - INFO - root - Performing vector search for query: 'How does O-RAN define new subcounters for an existing 3GPP measurement that already has subcounters defined?' with 40 neighbors.
+2025-03-30 11:13:37 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:37 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:37 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:38 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:38 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:38 - INFO - root - Reranking completed successfully for query: 'O-RAN's extensibility mechanism for 3GPP measurements.'
+Evaluating Q&A Entries:  21%|██        | 42/200 [02:19<08:37,  3.28s/it]2025-03-30 11:13:40 - INFO - root - Performing vector search for query: 'Which of the following attributes is NOT nullable according to the provided context?' with 40 neighbors.
+2025-03-30 11:13:40 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:40 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:41 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:41 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:41 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:41 - INFO - root - Reranking completed successfully for query: 'Data Integrity Constraints'
+Evaluating Q&A Entries:  22%|██▏       | 43/200 [02:22<08:24,  3.22s/it]2025-03-30 11:13:43 - INFO - root - Performing vector search for query: 'Which of the following components is considered unnecessary from an O-RAN perspective but cannot be removed due to YANG limitations?' with 40 neighbors.
+2025-03-30 11:13:43 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:43 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:44 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:44 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:44 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:44 - INFO - root - Reranking completed successfully for query: 'YANG model constraints.'
+Evaluating Q&A Entries:  22%|██▏       | 44/200 [02:25<08:14,  3.17s/it]2025-03-30 11:13:46 - INFO - root - Performing vector search for query: 'Which of the following procedures is NOT tested in the context of O-RAN.WG8.IOT.005?' with 40 neighbors.
+2025-03-30 11:13:47 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:47 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:47 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:47 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:47 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:47 - INFO - root - Reranking completed successfully for query: 'O-RAN WG8.IOT.005 specification scope.'
+Evaluating Q&A Entries:  22%|██▎       | 45/200 [02:29<08:07,  3.14s/it]2025-03-30 11:13:49 - INFO - root - Performing vector search for query: 'What is the purpose of the test ORAN.WG8.IOT.057?' with 40 neighbors.
+2025-03-30 11:13:50 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:50 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:50 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:50 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:50 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:51 - INFO - root - Reranking completed successfully for query: 'O-RAN WG8 specifications and their purpose.'
+Evaluating Q&A Entries:  23%|██▎       | 46/200 [02:32<08:10,  3.18s/it]2025-03-30 11:13:52 - INFO - root - Performing vector search for query: 'Which of the following interfaces are NOT covered in the IOT test cases described in the provided context?' with 40 neighbors.
+2025-03-30 11:13:53 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:53 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:53 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:54 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:54 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:54 - INFO - root - Reranking completed successfully for query: 'Interface coverage in O-RAN IOT test cases.'
+Evaluating Q&A Entries:  24%|██▎       | 47/200 [02:35<08:00,  3.14s/it]2025-03-30 11:13:55 - INFO - root - Performing vector search for query: 'Which of the following test procedures is described in the provided context?' with 40 neighbors.
+2025-03-30 11:13:56 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:56 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:13:56 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:13:57 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:13:57 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:13:57 - INFO - root - Reranking completed successfully for query: 'Test Procedure Identification'
+Evaluating Q&A Entries:  24%|██▍       | 48/200 [02:38<08:16,  3.27s/it]2025-03-30 11:13:59 - INFO - root - Performing vector search for query: 'What is the maximum number of Punctured SSB beams that can be configured on an O-DU?' with 40 neighbors.
+2025-03-30 11:13:59 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:13:59 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:00 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:00 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:00 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:00 - INFO - root - Reranking completed successfully for query: 'O-DU resource limitations.'
+Evaluating Q&A Entries:  24%|██▍       | 49/200 [02:41<08:03,  3.20s/it]2025-03-30 11:14:02 - INFO - root - Performing vector search for query: 'What is the minimum ratio of resources allocated for radio resource management (RRM) policies in the provided context?' with 40 neighbors.
+2025-03-30 11:14:03 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:03 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:03 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:03 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:03 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:03 - INFO - root - Reranking completed successfully for query: 'Resource Allocation Optimization'
+Evaluating Q&A Entries:  25%|██▌       | 50/200 [02:45<08:25,  3.37s/it]2025-03-30 11:14:06 - INFO - root - Performing vector search for query: 'What is the primary purpose of the test case ORAN.WG8.IOT.060?' with 40 neighbors.
+2025-03-30 11:14:06 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:06 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:07 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:07 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:07 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:07 - INFO - root - Reranking completed successfully for query: 'Test case objective'
+Evaluating Q&A Entries:  26%|██▌       | 51/200 [02:48<08:11,  3.30s/it]2025-03-30 11:14:09 - INFO - root - Performing vector search for query: 'What is the primary purpose of the test case ORAN.WG8.IOT.065?' with 40 neighbors.
+2025-03-30 11:14:09 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:09 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:10 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:10 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:10 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:10 - INFO - root - Reranking completed successfully for query: 'O-RAN test case specification purpose.'
+Evaluating Q&A Entries:  26%|██▌       | 52/200 [02:52<08:10,  3.32s/it]2025-03-30 11:14:12 - INFO - root - Performing vector search for query: 'What type of information is used for AI/ML model training in the context of Near RT RIC Beam-based Mobility Robustness Optimization?' with 40 neighbors.
+2025-03-30 11:14:13 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:13 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:13 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:13 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:13 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:14 - INFO - root - Reranking completed successfully for query: 'Training Data'
+Evaluating Q&A Entries:  26%|██▋       | 53/200 [02:55<07:50,  3.20s/it]2025-03-30 11:14:15 - INFO - root - Performing vector search for query: 'What triggers the end of optimization in Non-RT RIC?' with 40 neighbors.
+2025-03-30 11:14:16 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:16 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:16 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:16 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:16 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:17 - INFO - root - Reranking completed successfully for query: 'Optimization Convergence Criteria'
+Evaluating Q&A Entries:  27%|██▋       | 54/200 [02:58<07:41,  3.16s/it]2025-03-30 11:14:18 - INFO - root - Performing vector search for query: 'Which of the following is NOT a step involved in the reconfiguration of partitioned carrier information on a shared O-RU when a Non-RT RIC forwards a configuration request to OAM Functions?' with 40 neighbors.
+2025-03-30 11:14:19 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:19 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:19 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:20 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:20 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:20 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC-to-OAM interaction and configuration management.'
+Evaluating Q&A Entries:  28%|██▊       | 55/200 [03:01<07:40,  3.17s/it]2025-03-30 11:14:22 - INFO - root - Performing vector search for query: 'What type of data does the RAN provide to influence the 4G/5G MAC scheduler's resource management policies when utilizing a RIC-based DSS implementation?' with 40 neighbors.
+2025-03-30 11:14:22 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:22 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:22 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:23 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:23 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:23 - INFO - root - Reranking completed successfully for query: 'xApp-to-RIC-to-RAN interface data'
+Evaluating Q&A Entries:  28%|██▊       | 56/200 [03:04<07:35,  3.17s/it]2025-03-30 11:14:25 - INFO - root - Performing vector search for query: 'In the context of O-RAN, what is the primary function of the SMO/Non-RT RIC when it acts as a façade for an NWDAF?' with 40 neighbors.
+2025-03-30 11:14:25 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:25 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:26 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:26 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:26 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:26 - INFO - root - Reranking completed successfully for query: 'Abstraction/Proxy'
+Evaluating Q&A Entries:  28%|██▊       | 57/200 [03:07<07:33,  3.17s/it]2025-03-30 11:14:28 - INFO - root - Performing vector search for query: 'In Option 2 of O-RAN's SMO/Non-RT RIC functionality, how do 5GC NFs discover DCCF/MFAF instances?' with 40 neighbors.
+2025-03-30 11:14:28 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:28 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:29 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:29 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:29 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:29 - INFO - root - Reranking completed successfully for query: 'Service Discovery'
+Evaluating Q&A Entries:  29%|██▉       | 58/200 [03:10<07:24,  3.13s/it]2025-03-30 11:14:31 - INFO - root - Performing vector search for query: 'Which of the following options describes the most viable approach for an SMO/Non-RT RIC to communicate its capabilities to a separate NWDAF in an O-RAN environment?' with 40 neighbors.
+2025-03-30 11:14:31 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:31 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:32 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:32 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:32 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:32 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC interface specifications (e.g., E2, A1).'
+Evaluating Q&A Entries:  30%|██▉       | 59/200 [03:13<07:23,  3.14s/it]2025-03-30 11:14:34 - INFO - root - Performing vector search for query: 'Which of the following is NOT a step taken by Non-RT RIC in mitigating a distributed signaling storm attack?' with 40 neighbors.
+2025-03-30 11:14:35 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:35 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:35 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:35 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:35 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:36 - INFO - root - Reranking completed successfully for query: 'Non-RT RIC's security functions.'
+Evaluating Q&A Entries:  30%|███       | 60/200 [03:17<07:19,  3.14s/it]2025-03-30 11:14:37 - INFO - root - Performing vector search for query: 'In a Multi-MNO configuration, which entity is responsible for implementing coordinated calibration in the Antenna Calibration use case for a shared O-RU?' with 40 neighbors.
+2025-03-30 11:14:38 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:38 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:38 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:38 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:38 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:39 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC (RAN Intelligent Controller) role in multi-MNO coordination.'
+Evaluating Q&A Entries:  30%|███       | 61/200 [03:20<07:12,  3.11s/it]2025-03-30 11:14:40 - INFO - root - Performing vector search for query: 'What component is responsible for evaluating FM/PM data against the change management plan in an O-RAN system?' with 40 neighbors.
+2025-03-30 11:14:41 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:41 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:41 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:41 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:41 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:41 - INFO - root - Reranking completed successfully for query: 'Orchestration and Automation'
+Evaluating Q&A Entries:  31%|███       | 62/200 [03:22<06:55,  3.01s/it]2025-03-30 11:14:43 - INFO - root - Performing vector search for query: 'What event signifies the end of the Participating Operator shared O-RU Orchestration rApp?' with 40 neighbors.
+2025-03-30 11:14:44 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:44 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:44 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:44 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:44 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:45 - INFO - root - Reranking completed successfully for query: 'Lifecycle Management'
+Evaluating Q&A Entries:  32%|███▏      | 63/200 [03:26<07:00,  3.07s/it]2025-03-30 11:14:46 - INFO - root - Performing vector search for query: 'Which of the following attributes is NOT nullable, according to the provided context?' with 40 neighbors.
+2025-03-30 11:14:47 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:47 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:47 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:47 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:47 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:47 - INFO - root - Reranking completed successfully for query: 'Data Integrity Constraints'
+Evaluating Q&A Entries:  32%|███▏      | 64/200 [03:29<06:55,  3.06s/it]2025-03-30 11:14:49 - INFO - root - Performing vector search for query: 'Which of the following YANG modules define the interface of an O-RU?' with 40 neighbors.
+2025-03-30 11:14:50 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:50 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:50 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:51 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:51 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:51 - INFO - root - Reranking completed successfully for query: 'O-RAN YANG model definition.'
+Evaluating Q&A Entries:  32%|███▎      | 65/200 [03:32<07:10,  3.19s/it]2025-03-30 11:14:53 - INFO - root - Performing vector search for query: 'Which of the following components is NOT needed from an O-RAN point of view but cannot be removed without modifying the YANG model?' with 40 neighbors.
+2025-03-30 11:14:53 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:53 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:53 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:54 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:54 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:54 - INFO - root - Reranking completed successfully for query: 'YANG model dependencies'
+Evaluating Q&A Entries:  33%|███▎      | 66/200 [03:35<07:02,  3.15s/it]2025-03-30 11:14:56 - INFO - root - Performing vector search for query: 'Which of the following use cases was implemented in the July train of updates for the Open Radio Access Network (O-RAN) based alarm correlation document?' with 40 neighbors.
+2025-03-30 11:14:56 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:56 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:14:57 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:14:57 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:14:57 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:14:57 - INFO - root - Reranking completed successfully for query: 'O-RAN Release Versioning and Feature Tracking'
+Evaluating Q&A Entries:  34%|███▎      | 67/200 [03:38<06:49,  3.08s/it]2025-03-30 11:14:59 - INFO - root - Performing vector search for query: 'Which of the following is a reason why BRSKI is NOT applicable for Open Radio Access Networks (O-RAN)?' with 40 neighbors.
+2025-03-30 11:14:59 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:14:59 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:00 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:00 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:00 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:00 - INFO - root - Reranking completed successfully for query: 'O-RAN's distributed architecture and vendor diversity.'
+Evaluating Q&A Entries:  34%|███▍      | 68/200 [03:41<06:50,  3.11s/it]2025-03-30 11:15:02 - INFO - root - Performing vector search for query: 'Which of the following is NOT a reason why CMPv2 revocation support is not recommended for PNFs?' with 40 neighbors.
+2025-03-30 11:15:02 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:02 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:03 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:03 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:03 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:03 - INFO - root - Reranking completed successfully for query: 'PNF architectural limitations'
+Evaluating Q&A Entries:  34%|███▍      | 69/200 [03:45<06:59,  3.20s/it]2025-03-30 11:15:05 - INFO - root - Performing vector search for query: 'Which of the following key exchange algorithms is mandated for use in O-RAN deployments?' with 40 neighbors.
+2025-03-30 11:15:06 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:06 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:06 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:06 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:06 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:07 - INFO - root - Reranking completed successfully for query: 'O-RAN security specifications and mandated cryptographic algorithms.'
+Evaluating Q&A Entries:  35%|███▌      | 70/200 [03:48<06:44,  3.11s/it]2025-03-30 11:15:08 - INFO - root - Performing vector search for query: 'Which TLS feature extension is defined by RFC 7633 and indicates that clients expect stapled OCSP responses?' with 40 neighbors.
+2025-03-30 11:15:09 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:09 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:09 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:09 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:09 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:09 - INFO - root - Reranking completed successfully for query: 'OCSP Stapling'
+Evaluating Q&A Entries:  36%|███▌      | 71/200 [03:51<06:39,  3.10s/it]2025-03-30 11:15:11 - INFO - root - Performing vector search for query: 'Which of the following protocols can be used for external user to group mapping in NETCONF endpoints according to the provided requirements?' with 40 neighbors.
+2025-03-30 11:15:12 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:12 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:12 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:12 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:12 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:12 - INFO - root - Reranking completed successfully for query: 'NETCONF YANG modeling'
+Evaluating Q&A Entries:  36%|███▌      | 72/200 [03:54<06:31,  3.06s/it]2025-03-30 11:15:14 - INFO - root - Performing vector search for query: 'What is a primary method to ensure that the MAC algorithms used on the FH M-Plane interface are secure?' with 40 neighbors.
+2025-03-30 11:15:15 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:15 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:15 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:15 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:15 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:16 - INFO - root - Reranking completed successfully for query: 'Cryptographic Key Management'
+Evaluating Q&A Entries:  36%|███▋      | 73/200 [03:57<06:32,  3.09s/it]2025-03-30 11:15:17 - INFO - root - Performing vector search for query: 'Which of the following is considered the greatest threat to an SMO, according to the provided context?' with 40 neighbors.
+2025-03-30 11:15:18 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:18 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:18 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:18 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:18 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:19 - INFO - root - Reranking completed successfully for query: 'Security Threats to SMOs'
+Evaluating Q&A Entries:  37%|███▋      | 74/200 [04:00<06:19,  3.01s/it]2025-03-30 11:15:20 - INFO - root - Performing vector search for query: 'In an LLS-C2 configuration, what happens if a Denial-of-Service (DoS) attack targets the master clock within the O-DU?' with 40 neighbors.
+2025-03-30 11:15:21 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:21 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:21 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:22 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:22 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:22 - INFO - root - Reranking completed successfully for query: 'Synchronization failure'
+Evaluating Q&A Entries:  38%|███▊      | 75/200 [04:03<06:29,  3.12s/it]2025-03-30 11:15:24 - INFO - root - Performing vector search for query: 'What is the maximum allowed value for the "sst" parameter in O-RAN.WG2.A1TD-R003-v07.00?' with 40 neighbors.
+2025-03-30 11:15:24 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:24 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:24 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:25 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:25 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:25 - INFO - root - Reranking completed successfully for query: 'Parameter specification within O-RAN WG2 A1TD documentation.'
+Evaluating Q&A Entries:  38%|███▊      | 76/200 [04:06<06:37,  3.20s/it]2025-03-30 11:15:27 - INFO - root - Performing vector search for query: 'What is the maximum value allowed for the "NcI" field in the provided O-RAN specification?' with 40 neighbors.
+2025-03-30 11:15:27 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:27 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:28 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:28 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:28 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:28 - INFO - root - Reranking completed successfully for query: 'O-RAN specification parameter limits.'
+Evaluating Q&A Entries:  38%|███▊      | 77/200 [04:09<06:25,  3.14s/it]2025-03-30 11:15:30 - INFO - root - Performing vector search for query: 'What is the maximum value allowed for the "MmeUeS1apId" field in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:15:30 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:30 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:31 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:31 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:31 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:31 - INFO - root - Reranking completed successfully for query: 'O-RAN specification limits.'
+Evaluating Q&A Entries:  39%|███▉      | 78/200 [04:12<06:19,  3.11s/it]2025-03-30 11:15:33 - INFO - root - Performing vector search for query: 'What is the maximum value for the "SpeedUncertainty" parameter in the provided O-RAN context?' with 40 neighbors.
+2025-03-30 11:15:33 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:33 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:34 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:34 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:34 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:34 - INFO - root - Reranking completed successfully for query: 'Parameter Limits/Specifications'
+Evaluating Q&A Entries:  40%|███▉      | 79/200 [04:15<06:08,  3.04s/it]2025-03-30 11:15:36 - INFO - root - Performing vector search for query: 'Which of the following is NOT a component typically used in testing the interoperability of Non-Real Time RIC and Near-Real Time RIC in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:15:36 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:36 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:37 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:37 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:37 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:37 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC architecture and interfaces.'
+Evaluating Q&A Entries:  40%|████      | 80/200 [04:18<06:04,  3.04s/it]2025-03-30 11:15:39 - INFO - root - Performing vector search for query: 'What is a key requirement for a Non-Real Time RIC acting as a Device Under Test (DUT) in O-RAN testing?' with 40 neighbors.
+2025-03-30 11:15:39 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:39 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:40 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:40 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:40 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:40 - INFO - root - Reranking completed successfully for query: 'Interface conformance'
+Evaluating Q&A Entries:  40%|████      | 81/200 [04:21<05:54,  2.98s/it]2025-03-30 11:15:42 - INFO - root - Performing vector search for query: 'What is the purpose of the "Query all policy identifiers" test case in the context of A1-P Consumer?' with 40 neighbors.
+2025-03-30 11:15:42 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:42 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:43 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:43 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:43 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:43 - INFO - root - Reranking completed successfully for query: 'Policy Management'
+Evaluating Q&A Entries:  41%|████      | 82/200 [04:24<05:47,  2.95s/it]2025-03-30 11:15:45 - INFO - root - Performing vector search for query: 'What is the purpose of the "Query single policy" test case in the context of A1-P Consumer functionality?' with 40 neighbors.
+2025-03-30 11:15:45 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:45 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:45 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:46 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:46 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:46 - INFO - root - Reranking completed successfully for query: 'Policy Compliance Verification'
+Evaluating Q&A Entries:  42%|████▏     | 83/200 [04:27<05:32,  2.85s/it]2025-03-30 11:15:47 - INFO - root - Performing vector search for query: 'What is the expected HTTP response code when an unsupported eiTypeId is included in an HTTP GET request to an A1-EI Producer service?' with 40 neighbors.
+2025-03-30 11:15:48 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:48 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:48 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:48 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:48 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:48 - INFO - root - Reranking completed successfully for query: 'HTTP Error Handling'
+Evaluating Q&A Entries:  42%|████▏     | 84/200 [04:30<05:30,  2.85s/it]2025-03-30 11:15:50 - INFO - root - Performing vector search for query: 'What is the expected HTTP response code for a successful Query EI job identifiers procedure in an O-RAN A1-EI Producer?' with 40 neighbors.
+2025-03-30 11:15:51 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:51 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:51 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:52 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:52 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:52 - INFO - root - Reranking completed successfully for query: 'O-RAN A1-EI Producer HTTP API response codes.'
+Evaluating Q&A Entries:  42%|████▎     | 85/200 [04:33<05:46,  3.01s/it]2025-03-30 11:15:53 - INFO - root - Performing vector search for query: 'What is the primary purpose of the "Update EI job (negative case) – schema validation failure" test case?' with 40 neighbors.
+2025-03-30 11:15:54 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:54 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:54 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:55 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:55 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:55 - INFO - root - Reranking completed successfully for query: 'Schema validation in O-RAN.'
+Evaluating Q&A Entries:  43%|████▎     | 86/200 [04:36<05:39,  2.98s/it]2025-03-30 11:15:57 - INFO - root - Performing vector search for query: 'What is the purpose of the "Query EI job (positive case)" test case in the context of A1-EI Consumer functionality?' with 40 neighbors.
+2025-03-30 11:15:57 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:15:57 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:15:57 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:15:58 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:15:58 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:15:58 - INFO - root - Reranking completed successfully for query: 'A1-EI Consumer's ability to successfully request and receive data from an Edge Intelligence (EI) application.'
+Evaluating Q&A Entries:  44%|████▎     | 87/200 [04:39<05:41,  3.02s/it]2025-03-30 11:15:59 - INFO - root - Performing vector search for query: 'In the context of A1-EI service, what is the content of the message body in an HTTP request for Query EI type when a Non-RTR-DUT supports multiple EI types?' with 40 neighbors.
+2025-03-30 11:16:00 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:00 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:00 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:01 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:01 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:01 - INFO - root - Reranking completed successfully for query: 'O-RAN A1 interface EI type negotiation.'
+Evaluating Q&A Entries:  44%|████▍     | 88/200 [04:42<05:35,  2.99s/it]2025-03-30 11:16:02 - INFO - root - Performing vector search for query: 'What is a required test entrance criteria for the A1-EI Query EI job identifiers procedure in an O-RAN system?' with 40 neighbors.
+2025-03-30 11:16:03 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:03 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:03 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:04 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:04 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:04 - INFO - root - Reranking completed successfully for query: 'O-RAN conformance testing specifications.'
+Evaluating Q&A Entries:  44%|████▍     | 89/200 [04:45<05:28,  2.96s/it]2025-03-30 11:16:05 - INFO - root - Performing vector search for query: 'Which of the following reinforcement learning algorithms is NOT mentioned as being used in O-RAN?' with 40 neighbors.
+2025-03-30 11:16:06 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:06 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:06 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:07 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:07 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:07 - INFO - root - Reranking completed successfully for query: 'Reinforcement learning algorithms used in O-RAN.'
+Evaluating Q&A Entries:  45%|████▌     | 90/200 [04:48<05:28,  2.99s/it]2025-03-30 11:16:08 - INFO - root - Performing vector search for query: 'Which of the following is NOT a requirement for the O1 interface, as specified in the O-RAN.WG2.AIML-v01.03 document?' with 40 neighbors.
+2025-03-30 11:16:09 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:09 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:10 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:10 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:10 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:10 - INFO - root - Reranking completed successfully for query: 'O-RAN O1 Interface Specification'
+Evaluating Q&A Entries:  46%|████▌     | 91/200 [04:51<05:32,  3.05s/it]2025-03-30 11:16:12 - INFO - root - Performing vector search for query: 'In an O-RAN architecture, what component is responsible for terminating an ongoing AI/ML training job when requested by the Consumer rApp?' with 40 neighbors.
+2025-03-30 11:16:12 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:12 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:12 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:13 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:13 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:13 - INFO - root - Reranking completed successfully for query: 'Orchestration and Management'
+Evaluating Q&A Entries:  46%|████▌     | 92/200 [04:54<05:24,  3.01s/it]2025-03-30 11:16:14 - INFO - root - Performing vector search for query: 'What is the name of the document that addresses editorial comments from Intel and CMCC?' with 40 neighbors.
+2025-03-30 11:16:15 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:15 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:15 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:16 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:16 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:16 - INFO - root - Reranking completed successfully for query: 'O-RAN specification versioning and change control.'
+Evaluating Q&A Entries:  46%|████▋     | 93/200 [04:57<05:16,  2.96s/it]2025-03-30 11:16:17 - INFO - root - Performing vector search for query: 'What data types are registered as produced by the rAppR in the provided scenario?' with 40 neighbors.
+2025-03-30 11:16:18 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:18 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:18 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:19 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:19 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:19 - INFO - root - Reranking completed successfully for query: 'rApp Data Models'
+Evaluating Q&A Entries:  47%|████▋     | 94/200 [05:00<05:20,  3.02s/it]2025-03-30 11:16:20 - INFO - root - Performing vector search for query: 'In the context of O-RAN, what is the primary purpose of the Non-RT RIC Framework when it encounters an rApp requesting a data type that has no known source?' with 40 neighbors.
+2025-03-30 11:16:21 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:21 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:21 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:22 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:22 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:22 - INFO - root - Reranking completed successfully for query: 'RIC's data plane awareness and/or data acquisition mechanism.'
+Evaluating Q&A Entries:  48%|████▊     | 95/200 [05:03<05:12,  2.97s/it]2025-03-30 11:16:23 - INFO - root - Performing vector search for query: 'What type of data is the "rApp Q" registering as consumed in the provided scenario?' with 40 neighbors.
+2025-03-30 11:16:24 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:24 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:24 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:25 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:25 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:25 - INFO - root - Reranking completed successfully for query: 'Resource Management'
+Evaluating Q&A Entries:  48%|████▊     | 96/200 [05:06<05:08,  2.97s/it]2025-03-30 11:16:26 - INFO - root - Performing vector search for query: 'What data type is used to set up anonymous routing rules from the SMO as a producer?' with 40 neighbors.
+2025-03-30 11:16:27 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:27 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:27 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:27 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:27 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:28 - INFO - root - Reranking completed successfully for query: 'O-RAN SMO data plane interface definition.'
+Evaluating Q&A Entries:  48%|████▊     | 97/200 [05:09<05:17,  3.09s/it]2025-03-30 11:16:30 - INFO - root - Performing vector search for query: 'What is the role of the Non-RT RIC Framework in the interaction between rAppU and rAppQ, as described in the context?' with 40 neighbors.
+2025-03-30 11:16:30 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:30 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:31 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:31 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:31 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:31 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC architecture and its interfaces.'
+Evaluating Q&A Entries:  49%|████▉     | 98/200 [05:12<05:08,  3.02s/it]2025-03-30 11:16:33 - INFO - root - Performing vector search for query: 'What happens when the Non-RT RIC Framework determines that a Data Type CUp(t) no longer has a known data source?' with 40 neighbors.
+2025-03-30 11:16:33 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:33 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:33 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:34 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:34 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:34 - INFO - root - Reranking completed successfully for query: 'Data Source Discovery/Management'
+Evaluating Q&A Entries:  50%|████▉     | 99/200 [05:15<05:01,  2.99s/it]2025-03-30 11:16:36 - INFO - root - Performing vector search for query: 'Which of the following represents the Resource URI for accessing available DME types in the Data Discovery API?' with 40 neighbors.
+2025-03-30 11:16:36 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:36 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:36 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:37 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:37 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:37 - INFO - root - Reranking completed successfully for query: 'Data Discovery API Resource URIs'
+Evaluating Q&A Entries:  50%|█████     | 100/200 [05:18<05:01,  3.02s/it]2025-03-30 11:16:39 - INFO - root - Performing vector search for query: 'What is the role of the SM Fanout module in an O-DU when an E2 message is received?' with 40 neighbors.
+2025-03-30 11:16:39 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:39 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:39 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:40 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:40 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:40 - INFO - root - Reranking completed successfully for query: 'E2 interface message handling in the O-DU.'
+Evaluating Q&A Entries:  50%|█████     | 101/200 [05:21<05:01,  3.05s/it]2025-03-30 11:16:42 - INFO - root - Performing vector search for query: 'During an inter-gNB handover in an O-RAN network, what message does the source gNB-DU send to the O-CU's F1AP layer to convey the UE Measurement Report?' with 40 neighbors.
+2025-03-30 11:16:42 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:42 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:43 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:43 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:43 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:43 - INFO - root - Reranking completed successfully for query: 'F1AP signaling'
+Evaluating Q&A Entries:  51%|█████     | 102/200 [05:24<05:02,  3.08s/it]2025-03-30 11:16:45 - INFO - root - Performing vector search for query: 'Which API is used by the MAC layer to inform the Scheduler about the reception and decoding of DL HARQ feedback from the UE?' with 40 neighbors.
+2025-03-30 11:16:45 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:45 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:46 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:46 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:46 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:46 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC gNB API interaction.'
+Evaluating Q&A Entries:  52%|█████▏    | 103/200 [05:27<05:02,  3.12s/it]2025-03-30 11:16:48 - INFO - root - Performing vector search for query: 'Which of the following APIs is used by the scheduler to respond to a Cell Deletion request?' with 40 neighbors.
+2025-03-30 11:16:48 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:48 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:49 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:49 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:49 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:49 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC northbound APIs'
+Evaluating Q&A Entries:  52%|█████▏    | 104/200 [05:31<05:04,  3.17s/it]2025-03-30 11:16:51 - INFO - root - Performing vector search for query: 'Which of the following events is used to notify the OAM agent about the slice-specific throughput in an O-RAN system?' with 40 neighbors.
+2025-03-30 11:16:52 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:52 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:52 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:53 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:53 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:53 - INFO - root - Reranking completed successfully for query: 'O-RAN Performance Management (PM) and/or KPI reporting.'
+Evaluating Q&A Entries:  52%|█████▎    | 105/200 [05:34<04:54,  3.10s/it]2025-03-30 11:16:54 - INFO - root - Performing vector search for query: 'Which of the following components is responsible for notifying the O-DU-OAM-Agent about optimized DU configurations for features like Massive MIMO?' with 40 neighbors.
+2025-03-30 11:16:55 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:55 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:55 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:56 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:56 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:56 - INFO - root - Reranking completed successfully for query: 'O-RAN Management and Orchestration (O-RAN MO)'
+Evaluating Q&A Entries:  53%|█████▎    | 106/200 [05:37<04:51,  3.10s/it]2025-03-30 11:16:57 - INFO - root - Performing vector search for query: 'In what scenario would the O-RAN ALLIANCE initiate a formal investigation into an OTIC?' with 40 neighbors.
+2025-03-30 11:16:58 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:16:58 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:16:58 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:16:58 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:16:58 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:16:59 - INFO - root - Reranking completed successfully for query: 'O-RAN OTIC Compliance and Certification Procedures'
+Evaluating Q&A Entries:  54%|█████▎    | 107/200 [05:40<04:43,  3.05s/it]2025-03-30 11:17:00 - INFO - root - Performing vector search for query: 'Under what circumstances can O-RAN ALLIANCE terminate the Hosting Agreement with OTIC HOST?' with 40 neighbors.
+2025-03-30 11:17:01 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:01 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:01 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:01 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:01 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:02 - INFO - root - Reranking completed successfully for query: 'Breach of Contract'
+Evaluating Q&A Entries:  54%|█████▍    | 108/200 [05:43<04:44,  3.09s/it]2025-03-30 11:17:03 - INFO - root - Performing vector search for query: 'What happens to the confidentiality obligations outlined in the Hosting Agreement when the agreement is terminated?' with 40 neighbors.
+2025-03-30 11:17:04 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:04 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:04 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:05 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:05 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:05 - INFO - root - Reranking completed successfully for query: 'Survivability of Confidentiality Clauses'
+Evaluating Q&A Entries:  55%|█████▍    | 109/200 [05:46<04:37,  3.05s/it]2025-03-30 11:17:07 - INFO - root - Performing vector search for query: 'According to the O-RAN Drafting Rules, which of the following modal verbs are NOT allowed in O-RAN deliverables except when used in direct citation?' with 40 neighbors.
+2025-03-30 11:17:07 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:07 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:07 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:08 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:08 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:08 - INFO - root - Reranking completed successfully for query: 'O-RAN Drafting Style Guide's Prescriptive Verb Usage'
+Evaluating Q&A Entries:  55%|█████▌    | 110/200 [05:49<04:33,  3.04s/it]2025-03-30 11:17:09 - INFO - root - Performing vector search for query: 'In a Multi-Operator O-RU, which role is performed by the NETCONF client associated with the operator who manages the resource partitioning between operators?' with 40 neighbors.
+2025-03-30 11:17:10 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:10 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:10 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:10 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:10 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:11 - INFO - root - Reranking completed successfully for query: 'Resource Management and Control via NETCONF'
+Evaluating Q&A Entries:  56%|█████▌    | 111/200 [05:52<04:25,  2.99s/it]2025-03-30 11:17:12 - INFO - root - Performing vector search for query: 'In the revision statement of YANG models for O-RAN, what does the "<b>" component of the version number represent?' with 40 neighbors.
+2025-03-30 11:17:13 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:13 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:13 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:14 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:14 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:14 - INFO - root - Reranking completed successfully for query: 'YANG model versioning scheme.'
+Evaluating Q&A Entries:  56%|█████▌    | 112/200 [05:55<04:29,  3.06s/it]2025-03-30 11:17:16 - INFO - root - Performing vector search for query: 'What type of authentication mechanism is used in the O1 interface for O-DU in this version of the specification?' with 40 neighbors.
+2025-03-30 11:17:16 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:16 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:16 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:17 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:17 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:17 - INFO - root - Reranking completed successfully for query: 'O-RAN O1 Interface Security'
+Evaluating Q&A Entries:  56%|█████▋    | 113/200 [05:58<04:26,  3.07s/it]2025-03-30 11:17:19 - INFO - root - Performing vector search for query: 'What YANG data model is used by the O-DU to provide software inventory information of connected O-RUs to the SMO?' with 40 neighbors.
+2025-03-30 11:17:19 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:19 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:20 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:20 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:20 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:20 - INFO - root - Reranking completed successfully for query: 'O-RAN Management and Orchestration (O-RAN MO) YANG models.'
+Evaluating Q&A Entries:  57%|█████▋    | 114/200 [06:01<04:25,  3.09s/it]2025-03-30 11:17:22 - INFO - root - Performing vector search for query: 'What is the purpose of the "ietf-yang-schema-mount.yang" configuration in O-RAN?' with 40 neighbors.
+2025-03-30 11:17:22 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:22 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:23 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:23 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:23 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:23 - INFO - root - Reranking completed successfully for query: 'YANG model management in O-RAN.'
+Evaluating Q&A Entries:  57%|█████▊    | 115/200 [06:04<04:18,  3.04s/it]2025-03-30 11:17:25 - INFO - root - Performing vector search for query: 'What field in the ONAP VES common event header corresponds to the 'fault-severity' field in O-RU NETCONF based fault notification?' with 40 neighbors.
+2025-03-30 11:17:25 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:25 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:26 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:26 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:26 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:26 - INFO - root - Reranking completed successfully for query: 'Event Correlation'
+Evaluating Q&A Entries:  58%|█████▊    | 116/200 [06:07<04:18,  3.07s/it]2025-03-30 11:17:28 - INFO - root - Performing vector search for query: 'What is the state of the O-DU clock when it has lost its controlling reference input and is using stored data to control its output?' with 40 neighbors.
+2025-03-30 11:17:28 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:28 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:29 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:29 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:29 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:29 - INFO - root - Reranking completed successfully for query: 'Free-running mode'
+Evaluating Q&A Entries:  58%|█████▊    | 117/200 [06:10<04:17,  3.10s/it]2025-03-30 11:17:31 - INFO - root - Performing vector search for query: 'What does the "IN_USE" status of the sync-source-status parameter in the ptp-status container indicate?' with 40 neighbors.
+2025-03-30 11:17:31 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:31 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:32 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:32 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:32 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:32 - INFO - root - Reranking completed successfully for query: 'Precision Time Protocol (PTP) synchronization status.'
+Evaluating Q&A Entries:  59%|█████▉    | 118/200 [06:14<04:19,  3.16s/it]2025-03-30 11:17:34 - INFO - root - Performing vector search for query: 'What is the significance of the "NOT_IN_USE" status for a PTP source in an O-DU?' with 40 neighbors.
+2025-03-30 11:17:35 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:35 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:35 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:36 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:36 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:36 - INFO - root - Reranking completed successfully for query: 'Resource Management'
+Evaluating Q&A Entries:  60%|█████▉    | 119/200 [06:17<04:15,  3.16s/it]2025-03-30 11:17:37 - INFO - root - Performing vector search for query: 'In the context of O-RAN, how are WG4 data model instances that cannot be mapped from the SA5 data model and cannot be created by the O-DU's internal logic configured?' with 40 neighbors.
+2025-03-30 11:17:38 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:38 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:38 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:39 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:39 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:39 - INFO - root - Reranking completed successfully for query: 'O-RAN Configuration Management'
+Evaluating Q&A Entries:  60%|██████    | 120/200 [06:20<04:12,  3.15s/it]2025-03-30 11:17:41 - INFO - root - Performing vector search for query: 'What YANG module is used to define the augmentation of the base aggregation module for configuring o-ran-uplane-conf.yang instances to O-RUs?' with 40 neighbors.
+2025-03-30 11:17:41 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:41 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:41 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:42 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:42 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:42 - INFO - root - Reranking completed successfully for query: 'YANG module augmentation'
+Evaluating Q&A Entries:  60%|██████    | 121/200 [06:23<04:10,  3.17s/it]2025-03-30 11:17:44 - INFO - root - Performing vector search for query: 'What YANG model is used by SMO to configure the uplane configuration for each O-RU instance?' with 40 neighbors.
+2025-03-30 11:17:44 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:44 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:45 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:45 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:45 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:45 - INFO - root - Reranking completed successfully for query: 'O-RAN YANG model for O-RU uplane configuration.'
+Evaluating Q&A Entries:  61%|██████    | 122/200 [06:26<04:03,  3.12s/it]2025-03-30 11:17:47 - INFO - root - Performing vector search for query: 'How does the O-DU determine its transmission/reception window when the SMO directs "Not-Configured" as the window-determine-method?' with 40 neighbors.
+2025-03-30 11:17:47 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:47 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:48 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:48 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:48 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:48 - INFO - root - Reranking completed successfully for query: 'Default Behavior/Fallback Mechanism'
+Evaluating Q&A Entries:  62%|██████▏   | 123/200 [06:30<04:04,  3.17s/it]2025-03-30 11:17:50 - INFO - root - Performing vector search for query: 'In a hybrid Open RAN deployment, how does the Service Management Orchestrator (SMO) manage the general OAM functions of Multi O-DU O-RUs?' with 40 neighbors.
+2025-03-30 11:17:51 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:51 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:51 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:51 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:51 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:52 - INFO - root - Reranking completed successfully for query: 'O-RAN SMO's multi-vendor, multi-site OAM orchestration.'
+Evaluating Q&A Entries:  62%|██████▏   | 124/200 [06:33<03:59,  3.16s/it]2025-03-30 11:17:53 - INFO - root - Performing vector search for query: 'In a hierarchical O-RAN deployment, how does the SMO configure call home addresses on Shared O-RUs?' with 40 neighbors.
+2025-03-30 11:17:54 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:54 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:54 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:55 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:55 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:55 - INFO - root - Reranking completed successfully for query: 'O-RAN Management and Control (O-RAN MC)'
+Evaluating Q&A Entries:  62%|██████▎   | 125/200 [06:36<04:00,  3.21s/it]2025-03-30 11:17:57 - INFO - root - Performing vector search for query: 'In a hierarchical deployment of Multi Operator Shared O-RUs, which access control group is used by the O-DU performing the Shared O-RU Host role?' with 40 neighbors.
+2025-03-30 11:17:57 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:17:57 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:17:58 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:17:59 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:17:59 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:17:59 - INFO - root - Reranking completed successfully for query: 'O-DU Access Control to Shared O-RU Resources'
+Evaluating Q&A Entries:  63%|██████▎   | 126/200 [06:41<04:27,  3.61s/it]2025-03-30 11:18:01 - INFO - root - Performing vector search for query: 'In a hierarchical O-RAN deployment, how is the general OAM configuration for Multi Operator O-RUs managed?' with 40 neighbors.
+2025-03-30 11:18:02 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:02 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:02 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:02 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:02 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:03 - INFO - root - Reranking completed successfully for query: 'O-RAN Multi-Operator Shared O-RU Configuration Management'
+Evaluating Q&A Entries:  64%|██████▎   | 127/200 [06:44<04:11,  3.45s/it]2025-03-30 11:18:04 - INFO - root - Performing vector search for query: 'In a hierarchical O-RAN deployment, how does the Shared Resource Operator (SMO) configure SecondaryODuInfo, including the callHomeClientInfo attribute, on the Shared O-RU?' with 40 neighbors.
+2025-03-30 11:18:05 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:05 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:05 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:05 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:05 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:06 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC's configuration and management of O-RU resources.'
+Evaluating Q&A Entries:  64%|██████▍   | 128/200 [06:47<03:57,  3.30s/it]2025-03-30 11:18:07 - INFO - root - Performing vector search for query: 'In a hybrid O-RAN deployment, how does the SMO configure Shared Resource Operator O-DU supervision?' with 40 neighbors.
+2025-03-30 11:18:08 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:08 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:08 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:08 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:08 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:08 - INFO - root - Reranking completed successfully for query: 'O-RAN SMO control plane functions.'
+Evaluating Q&A Entries:  64%|██████▍   | 129/200 [06:50<03:49,  3.23s/it]2025-03-30 11:18:10 - INFO - root - Performing vector search for query: 'How does a Shared O-RU Host O-DU configure a particular O-RU to be uniquely associated with a specific Shared Resource Operator?' with 40 neighbors.
+2025-03-30 11:18:11 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:11 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:11 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:11 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:11 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:11 - INFO - root - Reranking completed successfully for query: 'O-RU Resource Partitioning'
+Evaluating Q&A Entries:  65%|██████▌   | 130/200 [06:53<03:45,  3.22s/it]2025-03-30 11:18:13 - INFO - root - Performing vector search for query: 'In the context of Open Radio Access Networks (O-RAN), which parameter is mandatory when the O-DU role is set to HOST or HOST_AND_SRO in Multi Operator Shared O-RU or primary in Single Operator Shared O-RU?' with 40 neighbors.
+2025-03-30 11:18:14 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:14 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:14 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:15 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:15 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:15 - INFO - root - Reranking completed successfully for query: 'O-DU fronthaul interface configuration.'
+Evaluating Q&A Entries:  66%|██████▌   | 131/200 [06:56<03:40,  3.19s/it]2025-03-30 11:18:16 - INFO - root - Performing vector search for query: 'What attribute is responsible for configuring the odu-id parameter in the per-odu-monitoring over Fronthaul M-plane, allowing operators to activate O-RU supervision per Shared Resource Operator O-DU?' with 40 neighbors.
+2025-03-30 11:18:17 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:17 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:17 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:18 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:18 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:18 - INFO - root - Reranking completed successfully for query: 'O-DU resource partitioning.'
+Evaluating Q&A Entries:  66%|██████▌   | 132/200 [06:59<03:36,  3.18s/it]2025-03-30 11:18:20 - INFO - root - Performing vector search for query: 'What is the collection method used for the "OR.F1.MaxUlPdcpPduVolTxF1UUl" performance counter?' with 40 neighbors.
+2025-03-30 11:18:20 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:20 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:21 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:21 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:21 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:21 - INFO - root - Reranking completed successfully for query: 'O-RAN Performance Management (PM) data collection.'
+Evaluating Q&A Entries:  66%|██████▋   | 133/200 [07:02<03:29,  3.13s/it]2025-03-30 11:18:23 - INFO - root - Performing vector search for query: 'Which of the following describes the purpose of the OR.F1.MaxUlPdcpPduVolTxF1UUl performance counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:18:23 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:23 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:24 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:24 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:24 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:24 - INFO - root - Reranking completed successfully for query: 'O-RAN performance counter semantics.'
+Evaluating Q&A Entries:  67%|██████▋   | 134/200 [07:05<03:25,  3.11s/it]2025-03-30 11:18:26 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.F1.MinUlPdcpPduVolTxF1U.Pmgroup measurement in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:18:26 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:26 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:27 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:27 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:27 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:27 - INFO - root - Reranking completed successfully for query: 'Performance Monitoring of F1 Interface.'
+Evaluating Q&A Entries:  68%|██████▊   | 135/200 [07:09<03:26,  3.18s/it]2025-03-30 11:18:29 - INFO - root - Performing vector search for query: 'Which of the following is a correct statement about the OR.F1.DlPdcpPduVolRxF1UDl measurement?' with 40 neighbors.
+2025-03-30 11:18:30 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:30 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:30 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:30 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:30 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:30 - INFO - root - Reranking completed successfully for query: 'O-RAN Performance Measurement Definition'
+Evaluating Q&A Entries:  68%|██████▊   | 136/200 [07:12<03:28,  3.26s/it]2025-03-30 11:18:33 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.F1.MinDlPdcpPduVolRxF1UDl performance counter?' with 40 neighbors.
+2025-03-30 11:18:33 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:33 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:33 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:34 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:34 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:34 - INFO - root - Reranking completed successfully for query: 'O-RAN performance counter interpretation.'
+Evaluating Q&A Entries:  68%|██████▊   | 137/200 [07:15<03:23,  3.24s/it]2025-03-30 11:18:36 - INFO - root - Performing vector search for query: 'What is the purpose of the measurement counter "OR.F1.DlF1UDiscardNRUProtocolError" in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:18:36 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:36 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:37 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:37 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:37 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:37 - INFO - root - Reranking completed successfully for query: 'O-RAN performance management and KPI (Key Performance Indicator) definition.'
+Evaluating Q&A Entries:  69%|██████▉   | 138/200 [07:18<03:18,  3.20s/it]2025-03-30 11:18:39 - INFO - root - Performing vector search for query: 'Which of the following statements is **TRUE** about the OR.F1.DlPdcpPduCellVolRxF1UDl measurement?' with 40 neighbors.
+2025-03-30 11:18:39 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:39 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:40 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:40 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:40 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:40 - INFO - root - Reranking completed successfully for query: 'O-RAN Performance Measurement Definition'
+Evaluating Q&A Entries:  70%|██████▉   | 139/200 [07:21<03:13,  3.17s/it]2025-03-30 11:18:42 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.RLC.RxUlRlcPduVol" measurement in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:18:42 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:42 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:43 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:43 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:43 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:43 - INFO - root - Reranking completed successfully for query: 'Radio Resource Control (RLC) Uplink Packet Volume Measurement'
+Evaluating Q&A Entries:  70%|███████   | 140/200 [07:24<03:07,  3.12s/it]2025-03-30 11:18:45 - INFO - root - Performing vector search for query: 'Which of the following is a correct description of the "OR.RLC.UlRlcPduDiscardBearerRel" performance counter?' with 40 neighbors.
+2025-03-30 11:18:46 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:46 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:46 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:46 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:46 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:46 - INFO - root - Reranking completed successfully for query: 'O-RAN Performance Management Counter Semantics'
+Evaluating Q&A Entries:  70%|███████   | 141/200 [07:27<03:04,  3.12s/it]2025-03-30 11:18:48 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.RLC.UlRlcPduVolDiscardRlcReest" performance counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:18:49 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:49 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:49 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:49 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:49 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:49 - INFO - root - Reranking completed successfully for query: 'Radio Resource Control (RLC) PDU Discarding'
+Evaluating Q&A Entries:  71%|███████   | 142/200 [07:31<02:59,  3.09s/it]2025-03-30 11:18:51 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.RLC.RlcPduDiscardOther performance counter in O-RAN?' with 40 neighbors.
+2025-03-30 11:18:51 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:51 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:52 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:52 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:52 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:52 - INFO - root - Reranking completed successfully for query: 'Resource Management'
+Evaluating Q&A Entries:  72%|███████▏  | 143/200 [07:34<02:57,  3.12s/it]2025-03-30 11:18:54 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.RLC.UlRlcPduVolDiscardOther performance counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:18:55 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:55 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:55 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:56 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:56 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:56 - INFO - root - Reranking completed successfully for query: 'Radio Resource Control (RLC) PDU Discarding'
+Evaluating Q&A Entries:  72%|███████▏  | 144/200 [07:37<03:00,  3.22s/it]2025-03-30 11:18:58 - INFO - root - Performing vector search for query: 'Which of the following best describes the purpose of the "OR.RLC.DlRlcduVolDiscardBearerRel.Pmgroup" measurement?' with 40 neighbors.
+2025-03-30 11:18:58 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:18:58 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:18:59 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:18:59 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:18:59 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:18:59 - INFO - root - Reranking completed successfully for query: 'O-RAN performance management and KPI definition.'
+Evaluating Q&A Entries:  72%|███████▎  | 145/200 [07:40<02:54,  3.18s/it]2025-03-30 11:19:01 - INFO - root - Performing vector search for query: 'Which of the following describes the purpose of the "OR.RLC.DlRlcPduVolDiscardRlcReest" performance counter?' with 40 neighbors.
+2025-03-30 11:19:01 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:01 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:02 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:02 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:02 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:02 - INFO - root - Reranking completed successfully for query: 'O-RAN performance counter semantics.'
+Evaluating Q&A Entries:  73%|███████▎  | 146/200 [07:43<02:49,  3.14s/it]2025-03-30 11:19:04 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.RLC.DlRlcSduDiscardFullBuffer.Pmgroup" measurement in the context of O-RAN?' with 40 neighbors.
+2025-03-30 11:19:04 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:04 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:05 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:05 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:05 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:05 - INFO - root - Reranking completed successfully for query: 'Radio Resource Management (RRM) metrics'
+Evaluating Q&A Entries:  74%|███████▎  | 147/200 [07:46<02:44,  3.11s/it]2025-03-30 11:19:07 - INFO - root - Performing vector search for query: 'What performance counter provides the number of received NACKs for the final retransmission in the RLC layer?' with 40 neighbors.
+2025-03-30 11:19:08 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:08 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:08 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:08 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:08 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:08 - INFO - root - Reranking completed successfully for query: 'RLC layer performance monitoring.'
+Evaluating Q&A Entries:  74%|███████▍  | 148/200 [07:50<02:46,  3.21s/it]2025-03-30 11:19:10 - INFO - root - Performing vector search for query: 'Which of the following represents the MCS index for initial transmission in the OR.ULHARQ.DistPuschMcsInitial performance counter?' with 40 neighbors.
+2025-03-30 11:19:11 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:11 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:11 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:11 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:11 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:12 - INFO - root - Reranking completed successfully for query: 'O-RAN performance counter interpretation.'
+Evaluating Q&A Entries:  74%|███████▍  | 149/200 [07:53<02:41,  3.17s/it]2025-03-30 11:19:13 - INFO - root - Performing vector search for query: 'Which of the following is the purpose of the OR.ULHARQ.DistPuschMcsInitialTxCRC counter?' with 40 neighbors.
+2025-03-30 11:19:14 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:14 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:14 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:14 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:14 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:15 - INFO - root - Reranking completed successfully for query: 'O-RAN performance monitoring counter functionality.'
+Evaluating Q&A Entries:  75%|███████▌  | 150/200 [07:56<02:33,  3.07s/it]2025-03-30 11:19:16 - INFO - root - Performing vector search for query: 'What is the measurement type that tracks the distribution of PUSCH transmissions based on the initial MCS index and the MCS table used?' with 40 neighbors.
+2025-03-30 11:19:17 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:17 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:17 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:18 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:18 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:18 - INFO - root - Reranking completed successfully for query: 'MCS Distribution'
+Evaluating Q&A Entries:  76%|███████▌  | 151/200 [07:59<02:31,  3.09s/it]2025-03-30 11:19:19 - INFO - root - Performing vector search for query: 'What does the OR.ULHARQ.DistPuschMcsAny performance counter measure in an O-DU?' with 40 neighbors.
+2025-03-30 11:19:20 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:20 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:20 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:21 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:21 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:21 - INFO - root - Reranking completed successfully for query: 'O-DU performance monitoring of UL HARQ.'
+Evaluating Q&A Entries:  76%|███████▌  | 152/200 [08:02<02:33,  3.20s/it]2025-03-30 11:19:23 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.ULHARQ.DistPuschMcsExceedHarqRetrans" measurement counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:19:23 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:23 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:24 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:24 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:24 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:24 - INFO - root - Reranking completed successfully for query: 'HARQ performance monitoring'
+Evaluating Q&A Entries:  76%|███████▋  | 153/200 [08:05<02:30,  3.20s/it]2025-03-30 11:19:26 - INFO - root - Performing vector search for query: 'Which of the following describes the purpose of the OR.ULHARQ.DistPuschMcsMuMimoInitialTxAck measurement?' with 40 neighbors.
+2025-03-30 11:19:26 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:26 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:27 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:27 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:27 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:27 - INFO - root - Reranking completed successfully for query: 'O-RAN UL HARQ performance measurement.'
+Evaluating Q&A Entries:  77%|███████▋  | 154/200 [08:08<02:23,  3.12s/it]2025-03-30 11:19:29 - INFO - root - Performing vector search for query: 'What does the counter "OR.ULHARQ.DistPuschMcsMuMimoInitialTxAck.MCSInitial.MCSTable" measure in an O-DU?' with 40 neighbors.
+2025-03-30 11:19:30 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:30 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:30 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:30 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:30 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:31 - INFO - root - Reranking completed successfully for query: 'O-DU performance metrics related to HARQ (Hybrid Automatic Repeat reQuest) and MCS (Modulation and Coding Scheme)'
+Evaluating Q&A Entries:  78%|███████▊  | 155/200 [08:12<02:22,  3.17s/it]2025-03-30 11:19:32 - INFO - root - Performing vector search for query: 'Which of the following MCS tables is used for PUSCH with transform precoding and 64QAM, according to the provided context?' with 40 neighbors.
+2025-03-30 11:19:33 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:33 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:33 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:34 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:34 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:34 - INFO - root - Reranking completed successfully for query: 'MCS table selection based on modulation and coding scheme.'
+Evaluating Q&A Entries:  78%|███████▊  | 156/200 [08:15<02:19,  3.16s/it]2025-03-30 11:19:35 - INFO - root - Performing vector search for query: 'Which of the following MCS tables is used for PDSCH/PUSCH without transform precoding when the MCS index is 0?' with 40 neighbors.
+2025-03-30 11:19:36 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:36 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:36 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:37 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:37 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:37 - INFO - root - Reranking completed successfully for query: 'MCS table mapping.'
+Evaluating Q&A Entries:  78%|███████▊  | 157/200 [08:18<02:12,  3.07s/it]2025-03-30 11:19:38 - INFO - root - Performing vector search for query: 'What does the "OR.DLHARQ.DistPdschMcsExceedHarqRetrans" measurement counter track?' with 40 neighbors.
+2025-03-30 11:19:39 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:39 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:39 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:39 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:39 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:40 - INFO - root - Reranking completed successfully for query: 'HARQ performance monitoring.'
+Evaluating Q&A Entries:  79%|███████▉  | 158/200 [08:21<02:07,  3.05s/it]2025-03-30 11:19:41 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.DLHARQ.DistPdschMcsMuMimoInitialTx counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:19:42 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:42 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:42 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:43 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:43 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:43 - INFO - root - Reranking completed successfully for query: 'Hybrid Automatic Repeat reQuest (HARQ) performance monitoring.'
+Evaluating Q&A Entries:  80%|███████▉  | 159/200 [08:24<02:05,  3.05s/it]2025-03-30 11:19:44 - INFO - root - Performing vector search for query: 'What does the "MCSInitial" parameter represent in the context of the OR.DLHARQ.DistPdschMcsMuMimoInitialTx.MCSInitial.MCSTable measurement?' with 40 neighbors.
+2025-03-30 11:19:45 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:45 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:45 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:46 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:46 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:46 - INFO - root - Reranking completed successfully for query: 'Initial Modulation and Coding Scheme (MCS)'
+Evaluating Q&A Entries:  80%|████████  | 160/200 [08:27<02:00,  3.01s/it]2025-03-30 11:19:47 - INFO - root - Performing vector search for query: 'Which of the following MCS indices is represented by the value '1' in the "OR.DLHARQ.DistPdschMcsMuMimoInitialTxAck.MCSInitial.MCSTable" measurement type?' with 40 neighbors.
+2025-03-30 11:19:48 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:48 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:48 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:48 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:48 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:49 - INFO - root - Reranking completed successfully for query: 'MCS index mapping in O-RAN's DLHARQ measurement.'
+Evaluating Q&A Entries:  80%|████████  | 161/200 [08:30<01:56,  2.98s/it]2025-03-30 11:19:50 - INFO - root - Performing vector search for query: 'Which of the following is an optional counter for O-DU that provides the distribution of PUSCH transmitted with rank 1 per SSB?' with 40 neighbors.
+2025-03-30 11:19:51 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:51 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:51 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:51 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:51 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:51 - INFO - root - Reranking completed successfully for query: 'O-DU performance monitoring counters.'
+Evaluating Q&A Entries:  81%|████████  | 162/200 [08:33<01:53,  2.98s/it]2025-03-30 11:19:53 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.ULSQL.DistPuschSsbBeamRank2" measurement in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:19:54 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:54 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:54 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:54 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:54 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:55 - INFO - root - Reranking completed successfully for query: 'Beamforming and its performance metrics.'
+Evaluating Q&A Entries:  82%|████████▏ | 163/200 [08:36<01:51,  3.00s/it]2025-03-30 11:19:56 - INFO - root - Performing vector search for query: 'What is the recommended support level for the O-DU in relation to the calculation of the power used to create an Rx beam?' with 40 neighbors.
+2025-03-30 11:19:57 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:19:57 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:19:57 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:19:58 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:19:58 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:19:58 - INFO - root - Reranking completed successfully for query: 'O-DU processing power and resource allocation for beamforming.'
+Evaluating Q&A Entries:  82%|████████▏ | 164/200 [08:39<01:53,  3.14s/it]2025-03-30 11:20:00 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.ULSQL.PuschRssi.SSB.statistic measurement?' with 40 neighbors.
+2025-03-30 11:20:00 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:00 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:01 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:01 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:01 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:01 - INFO - root - Reranking completed successfully for query: 'Signal quality monitoring'
+Evaluating Q&A Entries:  82%|████████▎ | 165/200 [08:43<01:55,  3.30s/it]2025-03-30 11:20:03 - INFO - root - Performing vector search for query: 'What measurement type is used to calculate the maximum/minimum number of  round(z, 2) * 102, where z represents the volume of SINR of the UE specific PUSCH?' with 40 neighbors.
+2025-03-30 11:20:04 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:04 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:04 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:04 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:04 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:05 - INFO - root - Reranking completed successfully for query: 'SINR distribution analysis'
+Evaluating Q&A Entries:  83%|████████▎ | 166/200 [08:46<01:52,  3.31s/it]2025-03-30 11:20:07 - INFO - root - Performing vector search for query: 'What does the measurement "OR.ULSQL.PucchSinr.SSB.statistic" represent in the context of O-RAN?' with 40 neighbors.
+2025-03-30 11:20:07 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:07 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:08 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:08 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:08 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:08 - INFO - root - Reranking completed successfully for query: 'O-RAN performance measurement.'
+Evaluating Q&A Entries:  84%|████████▎ | 167/200 [08:49<01:47,  3.27s/it]2025-03-30 11:20:10 - INFO - root - Performing vector search for query: 'What does the measurement "OR.ULSQL.PrachPreambleCorrelationValue.SSB.statistic" represent in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:20:10 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:10 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:11 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:11 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:11 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:11 - INFO - root - Reranking completed successfully for query: 'O-RAN Performance Measurement Interpretation'
+Evaluating Q&A Entries:  84%|████████▍ | 168/200 [08:52<01:43,  3.22s/it]2025-03-30 11:20:13 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.ULSQL.RssiPrachTxOccasion" performance counter in O-RAN?' with 40 neighbors.
+2025-03-30 11:20:13 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:13 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:14 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:14 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:14 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:14 - INFO - root - Reranking completed successfully for query: 'Signal strength measurement of PRACH transmissions.'
+Evaluating Q&A Entries:  84%|████████▍ | 169/200 [08:55<01:37,  3.14s/it]2025-03-30 11:20:16 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.ULSQL.DetectUlOutSync" performance counter in O-RAN?' with 40 neighbors.
+2025-03-30 11:20:16 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:16 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:17 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:17 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:17 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:17 - INFO - root - Reranking completed successfully for query: 'Synchronization of Uplink (UL) data.'
+Evaluating Q&A Entries:  85%|████████▌ | 170/200 [08:58<01:33,  3.12s/it]2025-03-30 11:20:19 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.DLSQL.DistPdschMcsRank1 performance counter in O-RAN?' with 40 neighbors.
+2025-03-30 11:20:19 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:19 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:20 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:20 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:20 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:20 - INFO - root - Reranking completed successfully for query: 'Physical Downlink Shared Channel (PDSCH) performance monitoring.'
+Evaluating Q&A Entries:  86%|████████▌ | 171/200 [09:01<01:29,  3.08s/it]2025-03-30 11:20:22 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.DLSQL.DistPdschMcsRank2" measurement object?' with 40 neighbors.
+2025-03-30 11:20:23 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:23 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:23 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:23 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:23 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:23 - INFO - root - Reranking completed successfully for query: 'O-RAN Performance Measurement'
+Evaluating Q&A Entries:  86%|████████▌ | 172/200 [09:05<01:28,  3.15s/it]2025-03-30 11:20:25 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.DLSQL.DistPdschMcsRank3" measurement counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:20:26 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:26 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:26 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:26 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:26 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:27 - INFO - root - Reranking completed successfully for query: 'O-RAN performance monitoring and KPI measurement.'
+Evaluating Q&A Entries:  86%|████████▋ | 173/200 [09:08<01:22,  3.05s/it]2025-03-30 11:20:28 - INFO - root - Performing vector search for query: 'Which of the following is NOT a valid MCS table value for PDSCH/PUSCH without transform precoding in the OR.DLSQL.DistPdschMcsRank3.MCSRetx.MCSTable measurement?' with 40 neighbors.
+2025-03-30 11:20:29 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:29 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:29 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:29 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:29 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:29 - INFO - root - Reranking completed successfully for query: 'Modulation and Coding Scheme (MCS) table index values.'
+Evaluating Q&A Entries:  87%|████████▋ | 174/200 [09:11<01:19,  3.05s/it]2025-03-30 11:20:31 - INFO - root - Performing vector search for query: 'Which of the following is a valid MCS index for initial transmission in the OR.DLSQL.DistPdschMcsRank4.MCSRetx.MCSTable measurement type?' with 40 neighbors.
+2025-03-30 11:20:32 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:32 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:32 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:32 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:32 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:33 - INFO - root - Reranking completed successfully for query: 'O-RAN MCS index mapping and valid ranges.'
+Evaluating Q&A Entries:  88%|████████▊ | 175/200 [09:14<01:16,  3.06s/it]2025-03-30 11:20:34 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.DLSQL.DistPdschSsbBeamRank2 performance counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:20:35 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:35 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:35 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:35 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:35 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:36 - INFO - root - Reranking completed successfully for query: 'O-RAN performance counter interpretation.'
+Evaluating Q&A Entries:  88%|████████▊ | 176/200 [09:17<01:13,  3.07s/it]2025-03-30 11:20:37 - INFO - root - Performing vector search for query: 'Which of the following is a performance counter used to track the distribution of PDSCH transmissions with rank 3 per SSB in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:20:38 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:38 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:38 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:38 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:38 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:39 - INFO - root - Reranking completed successfully for query: 'PDSCH Rank Distribution per SSB'
+Evaluating Q&A Entries:  88%|████████▊ | 177/200 [09:20<01:09,  3.01s/it]2025-03-30 11:20:40 - INFO - root - Performing vector search for query: 'Which of the following is a measurement object class used for collecting wideband CQI data for FR2 in an O-RAN environment?' with 40 neighbors.
+2025-03-30 11:20:41 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:41 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:41 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:41 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:41 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:42 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC measurement reporting.'
+Evaluating Q&A Entries:  89%|████████▉ | 178/200 [09:23<01:06,  3.01s/it]2025-03-30 11:20:43 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.DLSQL.WidebandCqiFR2.SSB.CQITable.statistic" measurement type in O-RAN?' with 40 neighbors.
+2025-03-30 11:20:44 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:44 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:44 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:45 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:45 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:45 - INFO - root - Reranking completed successfully for query: 'O-RAN performance monitoring of 5G NR wideband CQI reporting.'
+Evaluating Q&A Entries:  90%|████████▉ | 179/200 [09:26<01:04,  3.09s/it]2025-03-30 11:20:46 - INFO - root - Performing vector search for query: 'Which of the following is a measurement object class for the OR.BF.DistUeBeamIndex performance counter?' with 40 neighbors.
+2025-03-30 11:20:47 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:47 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:47 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:48 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:48 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:48 - INFO - root - Reranking completed successfully for query: 'O-RAN Performance Management and Measurement Objects'
+Evaluating Q&A Entries:  90%|█████████ | 180/200 [09:29<01:03,  3.16s/it]2025-03-30 11:20:50 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.BF.BestSecondBestBeamDist" performance counter in O-RAN?' with 40 neighbors.
+2025-03-30 11:20:50 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:50 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:51 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:51 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:51 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:51 - INFO - root - Reranking completed successfully for query: 'Beamforming performance'
+Evaluating Q&A Entries:  90%|█████████ | 181/200 [09:32<01:00,  3.19s/it]2025-03-30 11:20:53 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.RACH.TxRarPreambleGroupA performance counter?' with 40 neighbors.
+2025-03-30 11:20:53 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:53 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:54 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:54 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:54 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:54 - INFO - root - Reranking completed successfully for query: 'O-RAN performance counter interpretation.'
+Evaluating Q&A Entries:  91%|█████████ | 182/200 [09:35<00:55,  3.11s/it]2025-03-30 11:20:56 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.RACH.FailAssignmentDedicatedPreamble.SSB" measurement in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:20:57 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:20:57 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:20:57 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:20:57 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:20:57 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:20:57 - INFO - root - Reranking completed successfully for query: 'Radio Resource Management (RRM) performance monitoring.'
+Evaluating Q&A Entries:  92%|█████████▏| 183/200 [09:38<00:52,  3.11s/it]2025-03-30 11:20:59 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.RACH.FailAssignmentDedicatedPreamblePdcchOrderRaUlOutSync measurement counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:21:00 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:00 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:00 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:00 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:00 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:01 - INFO - root - Reranking completed successfully for query: 'O-RAN Radio Resource Management (RRM) performance measurement.'
+Evaluating Q&A Entries:  92%|█████████▏| 184/200 [09:42<00:49,  3.11s/it]2025-03-30 11:21:02 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.TA.DistNtaRarMessage performance counter?' with 40 neighbors.
+2025-03-30 11:21:03 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:03 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:03 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:03 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:03 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:04 - INFO - root - Reranking completed successfully for query: 'O-RAN performance management and counter interpretation.'
+Evaluating Q&A Entries:  92%|█████████▎| 185/200 [09:45<00:46,  3.12s/it]2025-03-30 11:21:05 - INFO - root - Performing vector search for query: 'What is the purpose of the "OR.CellUA.CancelDciPdcchResourceShortage" performance counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:21:06 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:06 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:06 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:07 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:07 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:07 - INFO - root - Reranking completed successfully for query: 'Resource Management'
+Evaluating Q&A Entries:  93%|█████████▎| 186/200 [09:48<00:43,  3.09s/it]2025-03-30 11:21:08 - INFO - root - Performing vector search for query: 'Which of the following is a true statement regarding the OR.CellUA.MaxUeBufferDlData measurement?' with 40 neighbors.
+2025-03-30 11:21:09 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:09 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:09 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:09 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:09 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:10 - INFO - root - Reranking completed successfully for query: 'O-RAN Cell UA Downlink Buffering'
+Evaluating Q&A Entries:  94%|█████████▎| 187/200 [09:51<00:40,  3.08s/it]2025-03-30 11:21:11 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.CellUA.MultiplexRxPdsch counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:21:12 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:12 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:12 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:13 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:13 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:13 - INFO - root - Reranking completed successfully for query: 'PDSCH reception performance monitoring.'
+Evaluating Q&A Entries:  94%|█████████▍| 188/200 [09:54<00:37,  3.10s/it]2025-03-30 11:21:15 - INFO - root - Performing vector search for query: 'Which of the following describes the purpose of the "OR.CellUA.SlotSchedulerAssignMiniSlot" measurement in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:21:15 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:15 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:15 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:16 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:16 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:16 - INFO - root - Reranking completed successfully for query: 'O-RAN RIC xApp interaction and performance monitoring.'
+Evaluating Q&A Entries:  94%|█████████▍| 189/200 [09:57<00:33,  3.02s/it]2025-03-30 11:21:17 - INFO - root - Performing vector search for query: 'Which of the following is the primary purpose of the OR.CellUA.MiniSlotsPuschRx performance counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:21:18 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:18 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:18 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:18 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:18 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:19 - INFO - root - Reranking completed successfully for query: 'O-RAN performance counter interpretation.'
+Evaluating Q&A Entries:  95%|█████████▌| 190/200 [10:00<00:30,  3.05s/it]2025-03-30 11:21:21 - INFO - root - Performing vector search for query: 'Which of the following is a key purpose of the "OR.CellUA.DistPscellUeXactiveScellUl" performance counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:21:21 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:21 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:22 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:22 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:22 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:22 - INFO - root - Reranking completed successfully for query: 'O-RAN xApp performance monitoring of inter-cell interference.'
+Evaluating Q&A Entries:  96%|█████████▌| 191/200 [10:03<00:27,  3.02s/it]2025-03-30 11:21:23 - INFO - root - Performing vector search for query: 'Which of the following is a measurement object class for the OR.CellUA.DistPscellUeXactiveScellDl performance counter in Open Radio Access Networks?' with 40 neighbors.
+2025-03-30 11:21:24 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:24 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:24 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:25 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:25 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:25 - INFO - root - Reranking completed successfully for query: 'O-RAN Performance Management and Measurement Objects'
+Evaluating Q&A Entries:  96%|█████████▌| 192/200 [10:06<00:24,  3.00s/it]2025-03-30 11:21:27 - INFO - root - Performing vector search for query: 'Which of the following is the purpose of the OR.CellUA.MinPscellUeUl performance counter in O-RAN?' with 40 neighbors.
+2025-03-30 11:21:27 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:27 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:27 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:28 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:28 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:28 - INFO - root - Reranking completed successfully for query: 'O-RAN performance counter interpretation.'
+Evaluating Q&A Entries:  96%|█████████▋| 193/200 [10:09<00:21,  3.00s/it]2025-03-30 11:21:29 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.CellUA.MinPscellUeDl counter in an O-DU?' with 40 neighbors.
+2025-03-30 11:21:30 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:30 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:30 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:31 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:31 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:31 - INFO - root - Reranking completed successfully for query: 'O-DU performance monitoring of downlink cell-specific user activity.'
+Evaluating Q&A Entries:  97%|█████████▋| 194/200 [10:12<00:18,  3.00s/it]2025-03-30 11:21:32 - INFO - root - Performing vector search for query: 'What is the purpose of the "RRU.PrbTotDlDist.BinX" measurement in the context of O-RAN?' with 40 neighbors.
+2025-03-30 11:21:33 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:33 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:33 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:34 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:34 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:34 - INFO - root - Reranking completed successfully for query: 'Distributed unit power measurement.'
+Evaluating Q&A Entries:  98%|█████████▊| 195/200 [10:15<00:15,  3.10s/it]2025-03-30 11:21:36 - INFO - root - Performing vector search for query: 'What is the time period over which the PRB usage is averaged for the RRU.PrbTotUlDist.BinX counter in O-RAN?' with 40 neighbors.
+2025-03-30 11:21:36 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:36 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:42 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:42 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:42 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:42 - INFO - root - Reranking completed successfully for query: 'Counter Aggregation Period'
+Evaluating Q&A Entries:  98%|█████████▊| 196/200 [10:23<00:18,  4.61s/it]2025-03-30 11:21:44 - INFO - root - Performing vector search for query: 'Which of the following best describes the purpose of the "OR.CellUA.AveUlBeamThroughput.SSB" counter in an O-RAN network?' with 40 neighbors.
+2025-03-30 11:21:44 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:44 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:45 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:45 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:45 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:45 - INFO - root - Reranking completed successfully for query: 'O-RAN performance monitoring metrics.'
+Evaluating Q&A Entries:  98%|█████████▊| 197/200 [10:26<00:12,  4.08s/it]2025-03-30 11:21:47 - INFO - root - Performing vector search for query: 'Which of the following is a recommended O-RAN addition for the "OR.RRU.PrbUsedDl" measurement?' with 40 neighbors.
+2025-03-30 11:21:47 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:47 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:48 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:48 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:48 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:48 - INFO - root - Reranking completed successfully for query: 'O-RAN Performance Management and Measurement'
+Evaluating Q&A Entries:  99%|█████████▉| 198/200 [10:29<00:07,  3.77s/it]2025-03-30 11:21:50 - INFO - root - Performing vector search for query: 'What is the purpose of the OR.RRU.PrbUsedDl.SNSSAI.PmGroup measurement in O-RAN?' with 40 neighbors.
+2025-03-30 11:21:50 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:50 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:51 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:51 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:51 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:51 - INFO - root - Reranking completed successfully for query: 'Resource utilization monitoring.'
+Evaluating Q&A Entries: 100%|█████████▉| 199/200 [10:32<00:03,  3.55s/it]2025-03-30 11:21:53 - INFO - root - Performing vector search for query: 'What is the recommended approach for splitting subcounters when the Slicing feature is supported in the OR.DRB.UEThpUlDist.Bin measurement?' with 40 neighbors.
+2025-03-30 11:21:53 - INFO - root - Retrieved 2 index endpoints.
+2025-03-30 11:21:53 - INFO - root - Found index endpoint 'oran_rag_contextual_endpoint' with resource name 'projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936'.
+2025-03-30 11:21:54 - INFO - root - Initialized MatchingEngineIndexEndpoint: projects/807664179229/locations/us-central1/indexEndpoints/7818666767533735936
+2025-03-30 11:21:54 - INFO - root - Vector search query executed successfully.
+2025-03-30 11:21:54 - INFO - root - Retrieved 40 chunks for the query.
+2025-03-30 11:21:54 - INFO - root - Reranking completed successfully for query: 'Subcounter Allocation for O-RAN Slicing'
+Evaluating Q&A Entries: 100%|██████████| 200/200 [10:35<00:00,  3.38s/it]Evaluating Q&A Entries: 100%|██████████| 200/200 [10:35<00:00,  3.18s/it]
+2025-03-30 11:21:55 - INFO - root - Default RAG Accuracy: 57.50%
+2025-03-30 11:21:55 - INFO - root - Gemini Accuracy: 59.00%
+2025-03-30 11:21:57 - INFO - root - Accuracy comparison plot saved to /Users/jasonchi/Library/CloudStorage/GoogleDrive-chijunzheng@gmail.com/My Drive/1.Projects/ORAN_RAG/ORAN_RAG_Refactored/evaluation_results/contextual_chunking/default_pipeline/accuracy_plot_default_200_20250330_111117.png
+2025-03-30 11:21:57 - INFO - root - Evaluation completed.
+2025-03-30 11:21:57 - INFO - root - Default RAG Accuracy: 57.50%
+2025-03-30 11:21:57 - INFO - root - Gemini Accuracy: 59.00%
+2025-03-30 11:21:57 - INFO - root - Evaluation completed successfully.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1743348120.343215 157314244 init.cc:229] grpc_wait_for_shutdown_with_timeout() timed out.

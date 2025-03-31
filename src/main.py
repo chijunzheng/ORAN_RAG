@@ -461,14 +461,17 @@ def main():
                 index_endpoint_display_name=vector_search_config['endpoint_display_name'],
                 deployed_index_id=vector_search_config['deployed_index_id'],
                 embeddings_path=gcp_config['embeddings_path'],
-                qna_dataset_path=config['gcp']['qna_dataset_path'],
+                qna_dataset_path=gcp_config['qna_dataset_path'],
+                qna_dataset_local_path=evaluation_config['qna_dataset_local_path'],
                 generation_config=generation_config,  
                 vector_searcher=vector_searcher, 
                 credentials=auth_manager.credentials,
                 num_neighbors=vector_search_config['num_neighbors'],
                 reranker=reranker
             )
-            qna_dataset = evaluator.load_qna_dataset_from_gcs()
+            
+            # Load dataset from local path (falls back to GCS if needed)
+            qna_dataset = evaluator.load_qna_dataset()
             num_questions = evaluation_config['num_questions']
             
             # Dynamically generate Excel filename
@@ -478,13 +481,13 @@ def main():
             dynamic_excel_filename = f"{excel_name}_{num_questions}{excel_ext}"
             dynamic_excel_path = os.path.join(excel_dir, dynamic_excel_filename)
 
-            rag_accuracy, gemini_accuracy = evaluator.evaluate_models_parallel(
+            chain_of_rag_accuracy, gemini_accuracy = evaluator.evaluate_models_parallel(
                 qna_dataset=qna_dataset,
                 num_questions=num_questions,
                 excel_file_path=dynamic_excel_path,
                 max_workers=evaluation_config['max_workers']
             )
-            logging.info(f"Evaluation completed. RAG Accuracy: {rag_accuracy}%, Gemini Accuracy: {gemini_accuracy}%")
+            logging.info(f"Evaluation completed. Chain of RAG Accuracy: {chain_of_rag_accuracy}%, Gemini Accuracy: {gemini_accuracy}%")
 
             # Dynamically generate plot filename
             base_plot_path = evaluation_config['plot_save_path']
@@ -497,7 +500,7 @@ def main():
                 dynamic_plot_path = None  # If not specified, no plot will be saved
 
             # Call the visualize_accuracies method from Evaluator
-            evaluator.visualize_accuracies(rag_accuracy, gemini_accuracy, save_path=dynamic_plot_path)
+            evaluator.visualize_accuracies(chain_of_rag_accuracy, gemini_accuracy, save_path=dynamic_plot_path)
         
         except Exception as e:
             logging.error(f"Evaluation failed: {e}")
