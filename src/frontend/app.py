@@ -17,6 +17,7 @@ from src.chatbot.chatbot import Chatbot
 from src.vector_search.searcher import VectorSearcher
 from src.vector_search.reranker import Reranker
 from src.embeddings.embedder import Embedder  # for triggering re-embedding (if needed)
+from src.utils.logger import setup_logging  # Import the improved logger
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')
@@ -25,9 +26,10 @@ if not app.config['SECRET_KEY']:
 app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
+# Initialize improved logging with setup_logging instead of basicConfig
+setup_logging(log_level=logging.INFO)
 logger = logging.getLogger(__name__)
+logger.info("Starting ORAN RAG Frontend")
 
 # Load configuration
 config_path = os.path.join(project_root, 'configs', 'config.yaml')
@@ -102,6 +104,7 @@ except Exception as e:
 def home():
     # Clear conversation history when the home page is accessed
     session.pop('conversation_history', None)
+    logger.info("Home page accessed, conversation history cleared")
     return render_template('index.html')
 
 @app.route('/ask', methods=['POST'])
@@ -109,25 +112,36 @@ def ask():
     user_input = request.form.get('message', '')
     use_cot = request.form.get('use_cot', 'off')  # Expect "on" or "off"
     use_chain_of_rag = request.form.get('use_chain_of_rag', 'off')  # Expect "on" or "off"
-    logger.info(f"Received /ask request with use_cot: {use_cot}, use_chain_of_rag: {use_chain_of_rag}")
+    
+    # More verbose logging with clear markers
+    logger.info("="*80)
+    logger.info(f"NEW QUERY: '{user_input}'")
+    logger.info(f"Settings - Chain of Thought: {use_cot}, Chain of RAG: {use_chain_of_rag}")
+    logger.info("-"*80)
     
     conversation_history = session.get('conversation_history', [])
     
-    response = chatbot.get_response(
-        user_query=user_input, 
-        conversation_history=conversation_history,
-        use_cot=(use_cot.lower() == 'on'),
-        use_chain_of_rag=(use_chain_of_rag.lower() == 'on')
-    )
-    
-    conversation_history.append({'user': user_input, 'assistant': response})
-    session['conversation_history'] = conversation_history
-    
-    logger.info(f"User: {user_input}")
-    logger.info(f"Chatbot: {response}")
-    return jsonify({'response': response})
-
-
+    try:
+        response = chatbot.get_response(
+            user_query=user_input, 
+            conversation_history=conversation_history,
+            use_cot=(use_cot.lower() == 'on'),
+            use_chain_of_rag=(use_chain_of_rag.lower() == 'on')
+        )
+        
+        conversation_history.append({'user': user_input, 'assistant': response})
+        session['conversation_history'] = conversation_history
+        
+        # Print response information with clear formatting
+        logger.info("-"*80)
+        logger.info(f"RESPONSE SUMMARY (first 100 chars): {response[:100]}...")
+        logger.info("="*80)
+        
+        return jsonify({'response': response})
+    except Exception as e:
+        logger.error(f"Error generating response: {e}", exc_info=True)
+        logger.info("="*80)
+        return jsonify({'response': f"Error generating response: {str(e)}"})
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5001, debug=True)

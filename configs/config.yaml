@@ -39,6 +39,14 @@ ranking:
   model: "semantic-ranker-512@latest" 
   rerank_top_n: 20
 
+# Chain of RAG specific parameters
+chain_of_rag:
+  max_iterations: 4          # Maximum number of Chain of RAG iterations
+  early_stopping: true       # Whether to stop early if enough information is gathered
+  search_neighbors: 40       # Number of neighbors to retrieve for each follow-up query
+  rerank_top_n: 10            # Number of top reranked results to keep
+  enable_reranking: true     # Whether to enable reranking in Chain of RAG
+
 chunking:
   chunk_size: 1536  # Maximum number of characters per chunk
   chunk_overlap: 256  # Number of overlapping characters between chunks

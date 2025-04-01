@@ -12,6 +12,7 @@ raw_docs/
 
 # Ignore log directory
 log/
+logs/
 
 # Ignore temp output or intermediate files
 *.jsonl

@@ -17,6 +17,7 @@ from src.vector_search.reranker import Reranker
 from src.chatbot.yang_processor import YangProcessor
 from src.chatbot.rat_processor import RATProcessor
 from src.chatbot.chain_of_rag import ChainOfRagProcessor
+from src.config import load_config
 
 
 
@@ -339,17 +340,48 @@ class Chatbot:
             # (1) Use Chain of RAG approach if specified
             if use_chain_of_rag:
                 logging.info("Chain of RAG toggle is ON => using Chain of RAG approach.")
+                
+                # Access chain_of_rag config from main config
+                config = load_config("configs/config.yaml")
+                
+                # Get chain_of_rag parameters from config
+                chain_of_rag_config = config.get('chain_of_rag', {})
+                max_iterations = chain_of_rag_config.get('max_iterations', 4)
+                early_stopping = chain_of_rag_config.get('early_stopping', True)
+                search_neighbors = chain_of_rag_config.get('search_neighbors', 10)
+                rerank_top_n = chain_of_rag_config.get('rerank_top_n', 5)
+                enable_reranking = chain_of_rag_config.get('enable_reranking', True)
+                
+                # Only use reranker if enabled in config
+                reranker_to_use = self.reranker if enable_reranking else None
+                
+                logging.info(f"Chain of RAG parameters: max_iterations={max_iterations}, "
+                             f"early_stopping={early_stopping}, search_neighbors={search_neighbors}, "
+                             f"rerank_top_n={rerank_top_n}, enable_reranking={enable_reranking}")
+                
                 chain_of_rag = ChainOfRagProcessor(
                     vector_searcher=self.vector_searcher,
                     llm=self.generative_model,
                     generation_config=self.generation_config,
                     index_endpoint_display_name=self.index_endpoint_display_name,
                     deployed_index_id=self.deployed_index_id,
-                    max_iterations=4,
-                    early_stopping=True
+                    reranker=reranker_to_use,
+                    max_iterations=max_iterations,
+                    early_stopping=early_stopping,
+                    search_neighbors=search_neighbors,
+                    rerank_top_n=rerank_top_n
                 )
+                
                 final_answer, debug_info = chain_of_rag.process_query(user_query, conversation_history)
-                logging.info(f"Chain of RAG used {len(debug_info['iterations'])} iterations, retrieved {debug_info['total_documents']} documents")
+                
+                # More detailed logging with reranking information
+                total_iterations = len(debug_info.get('iterations', []))
+                total_docs = debug_info.get('total_docs_retrieved', 0)
+                early_stopped = debug_info.get('early_stopped', False)
+                
+                logging.info(f"Chain of RAG completed: {total_iterations} iterations, retrieved {total_docs} documents")
+                logging.info(f"Early stopping activated: {early_stopped}")
+                
                 return final_answer
 
             # (2) Use RATProcessor for chain-of-thought if specified

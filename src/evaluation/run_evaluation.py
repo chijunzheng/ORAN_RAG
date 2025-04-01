@@ -302,15 +302,18 @@ def main():
             try:
                 from src.chatbot.chain_of_rag import ChainOfRagProcessor
                 
-                # Initialize Chain of RAG processor
+                # Initialize Chain of RAG processor with reranker
                 chain_of_rag = ChainOfRagProcessor(
                     vector_searcher=self.vector_searcher,
                     llm=self.generative_model,
                     generation_config=self.generation_config,
                     index_endpoint_display_name=self.index_endpoint_display_name,
                     deployed_index_id=self.deployed_index_id,
-                    max_iterations=6,
-                    early_stopping=True
+                    reranker=self.reranker,  # Pass the reranker instance
+                    max_iterations=4,  # Use config value if available
+                    early_stopping=True,
+                    search_neighbors=40,  # Number of initial neighbors to retrieve
+                    rerank_top_n=10  # Number of top reranked results to keep
                 )
                 
                 # Combine the question and choices

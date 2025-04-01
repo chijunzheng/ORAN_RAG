@@ -133,12 +133,15 @@ def main():
         logging.error(f"Failed to load or validate config: {e}")
         sys.exit(1)
 
-    # Setup logging after config is loaded
+    # Setup logging after config is loaded - always ensure console output
     # Define log file path from config.yaml
     log_file = config.get('logging', {}).get('log_file')
+    # Always keep logging to console even when writing to file
+    setup_logging(log_level=logging.INFO, log_file=log_file)
     if log_file:
-        setup_logging(log_level=logging.INFO, log_file=log_file)
-        logging.info(f"Logging to file: {log_file}")    
+        logging.info(f"Logging to file: {log_file} and console")
+    else:
+        logging.info("Logging to console only")
 
     # Extract necessary parameters from config.yaml
     gcp_config = config['gcp']

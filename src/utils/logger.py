@@ -27,6 +27,7 @@ def setup_logging(log_level=logging.INFO, log_file: str = None):
 
     # Console Handler
     console_handler = logging.StreamHandler()
+    console_handler.setLevel(log_level)  # Ensure console handler uses the same level
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
@@ -37,6 +38,3 @@ def setup_logging(log_level=logging.INFO, log_file: str = None):
         file_handler = logging.FileHandler(log_file)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
-
-    # Example of adding a NullHandler to prevent "No handler found" warnings
-    logger.addHandler(logging.NullHandler())
